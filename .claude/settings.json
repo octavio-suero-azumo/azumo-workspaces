@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "ask": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git remote add:*)",
+      "Bash(vercel:*)",
+      "Bash(npx vercel:*)",
+      "Bash(npm install:*)",
+      "Bash(npm i:*)",
+      "Bash(npm add:*)",
+      "Bash(npx playwright install:*)",
+      "Bash(pnpm add:*)",
+      "Bash(yarn add:*)",
+      "Edit(LOCAL_ACCESS_CHECK.md)",
+      "Write(LOCAL_ACCESS_CHECK.md)"
+    ]
+  }
+}
