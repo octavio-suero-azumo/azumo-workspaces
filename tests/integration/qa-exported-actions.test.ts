@@ -43,7 +43,7 @@ import {
   changeMemberRoleAction,
   removeMemberAction,
 } from "@/app/(app)/w/[workspaceId]/members/actions";
-import { createPageAction, deletePageAction, savePageAction } from "@/app/(app)/w/[workspaceId]/p/actions";
+import { createPageAction, savePageAction, trashPageAction } from "@/app/(app)/w/[workspaceId]/p/actions";
 import { deleteAttachmentAction, registerUploadAction } from "@/app/(app)/w/[workspaceId]/p/attachment-actions";
 import { createWorkspaceAction } from "@/app/(app)/workspace-actions";
 import { uploadPathPrefix } from "@/lib/attachment-rules";
@@ -83,8 +83,9 @@ const W1_ACTIONS: ReadonlyArray<readonly [string, ActionCall]> = [
     (fx) => savePageAction({ pageId: fx.pages.w1[0].id, workspaceId: fx.workspaces.w1.id, title: "QA hijacked title" }),
   ],
   [
-    "deletePageAction",
-    (fx) => deletePageAction(null, form({ pageId: fx.pages.w1[0].id, workspaceId: fx.workspaces.w1.id })),
+    // DP13: the former hard-delete action was replaced by Move to Trash.
+    "trashPageAction",
+    (fx) => trashPageAction({ pageId: fx.pages.w1[0].id, workspaceId: fx.workspaces.w1.id }),
   ],
   [
     "registerUploadAction",
@@ -127,8 +128,8 @@ const W2_ACTIONS_WITH_SUBSTITUTION: ReadonlyArray<readonly [string, ActionCall]>
     (fx) => savePageAction({ pageId: fx.pages.w2[0].id, workspaceId: fx.workspaces.w2.id, title: "QA hijacked" }),
   ],
   [
-    "deletePageAction (W2 page, W2 route)",
-    (fx) => deletePageAction(null, form({ pageId: fx.pages.w2[0].id, workspaceId: fx.workspaces.w2.id })),
+    "trashPageAction (W2 page, W2 route)",
+    (fx) => trashPageAction({ pageId: fx.pages.w2[0].id, workspaceId: fx.workspaces.w2.id }),
   ],
   [
     "registerUploadAction (W2 page)",

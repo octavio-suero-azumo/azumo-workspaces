@@ -23,17 +23,12 @@ export function GoogleSignInButton() {
   }
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <button
-        type="button"
-        onClick={signIn}
-        disabled={pending}
-        className="rounded border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-50 disabled:opacity-60"
-      >
+    <div className="flex w-full flex-col items-center gap-2">
+      <button type="button" onClick={signIn} disabled={pending} className="ui-button-secondary w-full justify-center py-2">
         {pending ? "Redirecting…" : "Continue with Google"}
       </button>
       {failed ? (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="text-sm text-danger">
           Could not start Google sign-in. Please try again.
         </p>
       ) : null}

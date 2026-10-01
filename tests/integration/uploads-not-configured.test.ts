@@ -37,7 +37,7 @@ import { createActionWrapper } from "@/server/action";
 import { getAuth } from "@/server/auth";
 import { deleteAttachment, listAttachments, registerUpload } from "@/server/data/attachments";
 import { getDataContext } from "@/server/data/context";
-import { createPage, deletePage, getPage, listPages } from "@/server/data/pages";
+import { createPage, getPage, listPages, restorePage, trashPage } from "@/server/data/pages";
 import { attachment, page } from "@/server/db/schema";
 import { ServiceUnavailableError } from "@/server/errors";
 import { getUploadSettings } from "@/server/uploads/config";
@@ -184,11 +184,15 @@ describe("uploads not configured (no BLOB_READ_WRITE_TOKEN)", () => {
       );
     });
 
-    it("deleting a page with attachments works (rows cascade; blob step skipped and logged)", async () => {
-      await deletePage(t.as("bob"), { pageId: w1Page() });
-      expect(await t.db.select().from(page).where(eq(page.id, w1Page()))).toEqual([]);
-      expect(await t.db.select().from(attachment).where(eq(attachment.pageId, w1Page()))).toEqual([]);
-      expect(consoleWarn).toHaveBeenCalled();
+    it("trashing and restoring a page with attachments works without Blob (DP13: no blob step at all)", async () => {
+      await trashPage(t.as("bob"), { pageId: w1Page() });
+      const [trashed] = await t.db.select().from(page).where(eq(page.id, w1Page()));
+      expect(trashed.deletedAt).toBeInstanceOf(Date);
+      expect(await t.db.select().from(attachment).where(eq(attachment.pageId, w1Page()))).toHaveLength(1);
+      await restorePage(t.as("bob"), { pageId: w1Page() });
+      const [restored] = await t.db.select().from(page).where(eq(page.id, w1Page()));
+      expect(restored.deletedAt).toBeNull();
+      expect(consoleWarn).not.toHaveBeenCalled();
     });
   });
 });

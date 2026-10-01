@@ -3,6 +3,7 @@ import {
   bigint,
   boolean,
   check,
+  date,
   foreignKey,
   index,
   jsonb,
@@ -14,6 +15,8 @@ import {
 } from "drizzle-orm/pg-core";
 // Relative imports on purpose: drizzle-kit loads this file without the `@/` alias.
 import { ATTACHMENT_DISPLAY_NAME_MAX, ATTACHMENT_KINDS } from "../../lib/attachment-rules";
+import { EVENT_DESCRIPTION_MAX, EVENT_TITLE_MAX } from "../../lib/calendar";
+import { PAGE_FONTS } from "../../lib/page-presentation";
 import { ROLES } from "../authz/permissions";
 
 /**
@@ -119,17 +122,31 @@ export const authSchema = { user, session, account, verification };
 /** `'owner', 'editor', 'viewer'` for the role CHECK, generated from `ROLES`. */
 const ROLE_LIST_SQL = sql.raw(ROLES.map((role) => `'${role}'`).join(", "));
 
+/**
+ * Icons (scope expansion E2, 2026-10-01) are emoji strings from the curated
+ * allowlist in `src/lib/icons.ts`, validated in the data layer. The DB only
+ * bounds their length; NULL means "default icon".
+ */
+const ICON_MAX_CODE_POINTS = 16;
+
 export const workspace = pgTable(
   "workspace",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
+    icon: text("icon"),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),
     ...timestamps,
   },
-  (table) => [check("workspace_name_length", sql`char_length(${table.name}) between 1 and 100`)],
+  (table) => [
+    check("workspace_name_length", sql`char_length(${table.name}) between 1 and 100`),
+    check(
+      "workspace_icon_length",
+      sql`${table.icon} is null or char_length(${table.icon}) between 1 and ${sql.raw(String(ICON_MAX_CODE_POINTS))}`,
+    ),
+  ],
 );
 
 export const membership = pgTable(
@@ -154,6 +171,18 @@ export const membership = pgTable(
   ],
 );
 
+/** `'default', 'serif', 'mono'` for the font CHECK, generated from `PAGE_FONTS`. */
+const PAGE_FONT_LIST_SQL = sql.raw(PAGE_FONTS.map((font) => `'${font}'`).join(", "));
+
+/**
+ * Pages. Scope expansion 2026-10-01 adds:
+ * - `icon` (E2) and the per-page presentation `font` / `small_text` /
+ *   `full_width` (E5), shared by every member, changed by Owner/Editor;
+ * - soft delete (E10, DP13): `deleted_at` + `deleted_by`, always set or
+ *   cleared together. A trashed page resolves only for `page.restore`
+ *   (`src/server/data/access.ts`); every other read and write filters
+ *   `deleted_at IS NULL`.
+ */
 export const page = pgTable(
   "page",
   {
@@ -163,6 +192,12 @@ export const page = pgTable(
       .references(() => workspace.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     content: jsonb("content"),
+    icon: text("icon"),
+    font: text("font").notNull().default("default"),
+    smallText: boolean("small_text").notNull().default(false),
+    fullWidth: boolean("full_width").notNull().default(false),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: text("deleted_by").references(() => user.id),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),
@@ -172,10 +207,21 @@ export const page = pgTable(
     ...timestamps,
   },
   (table) => [
-    // Target of the attachment composite FK (page_id, workspace_id) (AC-25).
+    // Target of the attachment composite FK (page_id, workspace_id) (AC-25)
+    // and of the calendar event → page FK (E4).
     unique("page_id_workspace_unique").on(table.id, table.workspaceId),
     check("page_title_length", sql`char_length(${table.title}) between 1 and 200`),
+    check(
+      "page_icon_length",
+      sql`${table.icon} is null or char_length(${table.icon}) between 1 and ${sql.raw(String(ICON_MAX_CODE_POINTS))}`,
+    ),
+    check("page_font_valid", sql`${table.font} in (${PAGE_FONT_LIST_SQL})`),
+    check("page_trash_pair", sql`(${table.deletedAt} is null) = (${table.deletedBy} is null)`),
     index("page_workspace_id_idx").on(table.workspaceId),
+    // Home "Recently edited" and the sidebar read live pages by workspace.
+    index("page_live_updated_idx")
+      .on(table.workspaceId, table.updatedAt.desc())
+      .where(sql`${table.deletedAt} is null`),
   ],
 );
 
@@ -228,5 +274,74 @@ export const attachment = pgTable(
     check("attachment_size_non_negative", sql`${table.sizeBytes} >= 0`),
     index("attachment_page_id_idx").on(table.pageId),
     index("attachment_workspace_id_idx").on(table.workspaceId),
+  ],
+);
+
+/**
+ * Calendar events (scope expansion E4, 2026-10-01). One workspace each;
+ * Owner/Editor write, every member reads.
+ *
+ * - ALL-DAY: `start_date`/`end_date` (DATE, end INCLUSIVE). Never converted
+ *   between time zones, so the event keeps its calendar day for everyone.
+ * - TIMED: `start_at`/`end_at` (timestamptz) + the author's IANA `time_zone`.
+ *   The shape CHECK makes the two forms mutually exclusive.
+ * - Optional related page of the SAME workspace: the composite FK
+ *   (page_id, workspace_id) → page(id, workspace_id) makes a cross-workspace
+ *   link impossible. On page delete only `page_id` is nulled: the migration
+ *   uses `ON DELETE SET NULL ("page_id")` (PostgreSQL ≥ 15). Drizzle cannot
+ *   express a column list, so the generated SQL was hand-edited and the
+ *   definition is pinned by tests/integration/schema-expansion.test.ts.
+ *   Moving a page clears the link (the event stays in its workspace).
+ */
+export const calendarEvent = pgTable(
+  "calendar_event",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    pageId: uuid("page_id"),
+    title: text("title").notNull(),
+    description: text("description"),
+    allDay: boolean("all_day").notNull(),
+    startDate: date("start_date", { mode: "string" }),
+    endDate: date("end_date", { mode: "string" }),
+    startAt: timestamp("start_at", { withTimezone: true }),
+    endAt: timestamp("end_at", { withTimezone: true }),
+    timeZone: text("time_zone"),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id),
+    updatedBy: text("updated_by")
+      .notNull()
+      .references(() => user.id),
+    ...timestamps,
+  },
+  (table) => [
+    foreignKey({
+      name: "calendar_event_page_workspace_fk",
+      columns: [table.pageId, table.workspaceId],
+      foreignColumns: [page.id, page.workspaceId],
+    }).onDelete("set null"),
+    check(
+      "calendar_event_title_length",
+      sql`char_length(${table.title}) between 1 and ${sql.raw(String(EVENT_TITLE_MAX))}`,
+    ),
+    check(
+      "calendar_event_description_length",
+      sql`${table.description} is null or char_length(${table.description}) <= ${sql.raw(String(EVENT_DESCRIPTION_MAX))}`,
+    ),
+    check(
+      "calendar_event_time_zone_length",
+      sql`${table.timeZone} is null or char_length(${table.timeZone}) between 1 and 64`,
+    ),
+    check(
+      "calendar_event_shape",
+      sql`(${table.allDay} and ${table.startDate} is not null and ${table.endDate} is not null and ${table.endDate} >= ${table.startDate} and ${table.startAt} is null and ${table.endAt} is null and ${table.timeZone} is null)
+        or (not ${table.allDay} and ${table.startAt} is not null and ${table.endAt} is not null and ${table.endAt} > ${table.startAt} and ${table.timeZone} is not null and ${table.startDate} is null and ${table.endDate} is null)`,
+    ),
+    index("calendar_event_workspace_start_date_idx").on(table.workspaceId, table.startDate),
+    index("calendar_event_workspace_start_at_idx").on(table.workspaceId, table.startAt),
+    index("calendar_event_page_id_idx").on(table.pageId),
   ],
 );

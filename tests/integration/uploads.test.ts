@@ -44,6 +44,7 @@ import { createActionWrapper } from "@/server/action";
 import { getAuth } from "@/server/auth";
 import {
   ALREADY_ATTACHED_MESSAGE,
+  authorizeUploadRequest,
   deleteAttachment,
   getAttachmentDownload,
   listAttachments,
@@ -51,7 +52,7 @@ import {
   UPLOAD_NOT_FOUND_MESSAGE,
 } from "@/server/data/attachments";
 import { getDataContext } from "@/server/data/context";
-import { deletePage } from "@/server/data/pages";
+import { restorePage, trashPage } from "@/server/data/pages";
 import { attachment, page } from "@/server/db/schema";
 import { DEFAULT_UPLOAD_ALLOWED_TYPES, DEFAULT_UPLOAD_MAX_BYTES } from "@/server/env";
 import { ConflictError, ForbiddenError, NotFoundError, UnauthenticatedError, ValidationError } from "@/server/errors";
@@ -731,40 +732,69 @@ describe("uploads (SIMULATED Blob): token route, registerUpload, download, delet
     });
   });
 
-  // ------------------------------------------------ AC-28 / DP4: page delete
+  // ------------------------------------------------ AC-57 / AC-42 / DP13: page Trash
 
-  describe("TC-29 / AC-28 / DP4: deleting a page removes its attachment rows AND their blobs", () => {
-    it("bob deletes a page with two attachments: both rows gone, del() called with both pathnames", async () => {
+  describe("AC-57 / AC-42 / DP13 (supersede AC-28/DP4): Trash keeps attachment rows AND blobs, but blocks them", () => {
+    it("bob trashes a page with two attachments: rows and blobs kept (no del), files 404 until restore", async () => {
       const second = w1Pathname("second-AbC123.pdf");
       vi.mocked(head).mockResolvedValue(simulatedHead(second));
-      await registerUpload(t.as("bob"), { pageId: w1Page(), pathname: second, displayName: "second.pdf" });
+      const registered = await registerUpload(t.as("bob"), { pageId: w1Page(), pathname: second, displayName: "second.pdf" });
+      const ids = [t.fx.attachments.w1.id, registered.id];
 
-      await deletePage(t.as("bob"), { pageId: w1Page(), workspaceId: w1() });
+      await trashPage(t.as("bob"), { pageId: w1Page(), workspaceId: w1() });
 
-      expect(await t.db.select().from(attachment).where(eq(attachment.pageId, w1Page()))).toEqual([]);
-      expect(del).toHaveBeenCalledTimes(1);
-      const [pathnames, options] = vi.mocked(del).mock.calls[0];
-      expect([...(pathnames as string[])].sort()).toEqual([t.fx.attachments.w1.blobPathname, second].sort());
-      expect(options).toEqual({ token: SIMULATED_BLOB_TOKEN });
-      // W2 and W3 attachments are untouched.
-      expect(await attachmentCount()).toBe(2);
-    });
+      expect(await t.db.select().from(attachment).where(eq(attachment.pageId, w1Page()))).toHaveLength(2);
+      expect(del).not.toHaveBeenCalled();
+      for (const attachmentId of ids) {
+        for (const who of ["alice", "bob", "carol"] as const) {
+          await expect(getAttachmentDownload(t.as(who), { attachmentId })).rejects.toBeInstanceOf(NotFoundError);
+        }
+        await expectDeniedUnchanged(() => deleteAttachment(t.as("bob"), { attachmentId }), NotFoundError);
+      }
+      await expectDeniedUnchanged(() => listAttachments(t.as("alice"), { pageId: w1Page() }), NotFoundError);
 
-    it("a page without attachments: no del() call", async () => {
-      await deletePage(t.as("bob"), { pageId: w1OtherPage() });
+      await restorePage(t.as("alice"), { pageId: w1Page() });
+      for (const attachmentId of ids) {
+        await expect(getAttachmentDownload(t.as("carol"), { attachmentId })).resolves.toMatchObject({ id: attachmentId });
+      }
       expect(del).not.toHaveBeenCalled();
     });
 
-    it("a denied page delete (carol, Viewer) touches neither rows nor blobs", async () => {
-      await expectDeniedUnchanged(() => deletePage(t.as("carol"), { pageId: w1Page() }), ForbiddenError);
-      expect(del).not.toHaveBeenCalled();
+    it("a trashed page refuses new uploads: token request and registration → NotFound, the uploaded blob is deleted", async () => {
+      await trashPage(t.as("bob"), { pageId: w1Page() });
+      const pathname = w1Pathname("after-trash.pdf");
+      await expectDeniedUnchanged(
+        () =>
+          authorizeUploadRequest(
+            t.as("bob"),
+            { pathname, clientPayload: JSON.stringify({ pageId: w1Page(), size: 10, contentType: "application/pdf" }) },
+            { maxBytes: DEFAULT_UPLOAD_MAX_BYTES, allowedTypes: DEFAULT_UPLOAD_ALLOWED_TYPES },
+          ),
+        NotFoundError,
+      );
+      await expectDeniedUnchanged(
+        () => registerUpload(t.as("bob"), { pageId: w1Page(), pathname, displayName: "after-trash.pdf" }),
+        NotFoundError,
+      );
+      expect(head).not.toHaveBeenCalled();
     });
 
-    it("a Blob failure does not undo or fail the page delete (logged)", async () => {
-      vi.mocked(del).mockRejectedValue(new Error("simulated Blob outage"));
-      await expect(deletePage(t.as("bob"), { pageId: w1Page() })).resolves.toMatchObject({ id: w1Page() });
-      expect(await t.db.select().from(page).where(eq(page.id, w1Page()))).toEqual([]);
-      expect(consoleError).toHaveBeenCalled();
+    it("AC-56: the page trashed between authorization and insert → NotFound, the blob is deleted, no row", async () => {
+      const pathname = w1Pathname("trashed-late.pdf");
+      vi.mocked(head).mockImplementation(async () => {
+        await trashPage(t.as("alice"), { pageId: w1Page() });
+        return simulatedHead(pathname);
+      });
+      await expect(
+        registerUpload(t.as("bob"), { pageId: w1Page(), pathname, displayName: "trashed-late.pdf" }),
+      ).rejects.toBeInstanceOf(NotFoundError);
+      expect(del).toHaveBeenCalledWith([pathname], { token: SIMULATED_BLOB_TOKEN });
+      expect(await t.db.select().from(attachment).where(eq(attachment.blobPathname, pathname))).toEqual([]);
+    });
+
+    it("a denied trash (carol, Viewer) touches neither rows nor blobs", async () => {
+      await expectDeniedUnchanged(() => trashPage(t.as("carol"), { pageId: w1Page() }), ForbiddenError);
+      expect(del).not.toHaveBeenCalled();
     });
   });
 

@@ -2,8 +2,9 @@ import { del } from "@vercel/blob";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Page deletion also deletes its attachments' blobs (DP4). The Blob server SDK
-// is mocked: blob deletion is SIMULATED (manual TC-43 with a real store).
+// DP13 (scope expansion 2026-10-01): pages are no longer hard-deleted. "Move
+// to Trash" is a soft delete that must KEEP the attachment rows and blobs, so
+// the Blob server SDK is mocked to assert that `del()` is never called.
 vi.mock("@vercel/blob", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@vercel/blob")>();
   return { ...actual, head: vi.fn(), get: vi.fn(), del: vi.fn() };
@@ -12,23 +13,26 @@ vi.mock("@vercel/blob", async (importOriginal) => {
 import { CONTENT_INVALID_MESSAGE, CONTENT_NOT_A_DOCUMENT_MESSAGE } from "@/server/data/page-content";
 import {
   createPage,
-  deletePage,
   getPage,
   listPages,
+  listTrash,
+  NOT_IN_TRASH_MESSAGE,
   NOTHING_TO_UPDATE_MESSAGE,
+  restorePage,
   TITLE_REQUIRED_MESSAGE,
   TITLE_TOO_LONG_MESSAGE,
+  trashPage,
   updatePage,
 } from "@/server/data/pages";
 import { attachment, page } from "@/server/db/schema";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
 import { SIMULATED_BLOB_TOKEN } from "../support/blob-sim";
 import { snapshotAppTables, type FixtureUserKey } from "../support/fixtures";
 import { useFixtureDb } from "../support/fixture-db";
 import { asEditorJson, formattedDoc, XSS_PAYLOADS, xssDoc } from "../support/page-docs";
 
 // Increment D: T-10 (create/list/view), T-11 (edit + formatted content),
-// T-12 (delete). R4.1, PR1, PR2, DP4, DP5.
+// T-12 (delete, now Trash/Restore per DP13). R4.1, PR1, PR2, DP5; PRD §12 AC-42, AC-57.
 // TC-24 (AC-19), TC-25 (AC-20), TC-26 (AC-27), TC-27 (AC-29, data level),
 // TC-28 (AC-30, data level), TC-29 (AC-28), AC-15 page cells, AC-38.
 // Direct server calls (no UI), as the test plan requires for authorization.
@@ -275,50 +279,86 @@ describe("pages (T-10..T-12)", () => {
     });
   });
 
-  describe("AC-28 / TC-29: delete (hard delete, DP4; Editors may delete, DP5)", () => {
-    it("bob (Editor) deletes a W1 page: every later read is NotFound and it leaves the list", async () => {
+  describe("AC-57 / AC-42 (supersedes AC-28, DP13): Trash is a reversible soft delete (Editors may trash, DP5)", () => {
+    it("bob (Editor) trashes a W1 page: normal reads are NotFound and it leaves the list, but row, content and files are KEPT", async () => {
       const target = w1Page();
-      await expect(deletePage(t.as("bob"), { pageId: target.id, workspaceId: w1() })).resolves.toEqual({
+      const before = await readRow(target.id);
+      await expect(trashPage(t.as("bob"), { pageId: target.id, workspaceId: w1() })).resolves.toEqual({
         id: target.id,
         workspaceId: w1(),
       });
 
-      expect(await readRow(target.id)).toBeUndefined();
+      const after = await readRow(target.id);
+      expect(after).toBeDefined();
+      expect(after!.deletedAt).toBeInstanceOf(Date);
+      expect(after!.deletedBy).toBe(t.fx.users.bob.id);
+      expect(after!.title).toBe(before!.title);
+      expect(after!.content).toEqual(before!.content);
       for (const who of ["alice", "bob", "carol"] as const) {
         await expect(getPage(t.as(who), { pageId: target.id })).rejects.toBeInstanceOf(NotFoundError);
       }
       expect((await listPages(t.as("alice"), w1())).map((p) => p.id)).not.toContain(target.id);
       // The other W1 page is untouched.
-      expect(await readRow(t.fx.pages.w1[1].id)).toBeDefined();
+      expect((await readRow(t.fx.pages.w1[1].id))!.deletedAt).toBeNull();
 
-      // DP4: its attachment rows are gone and their blobs were deleted (SIMULATED del()).
-      expect(await t.db.select().from(attachment).where(eq(attachment.pageId, target.id))).toEqual([]);
-      expect(del).toHaveBeenCalledTimes(1);
-      expect(del).toHaveBeenCalledWith([t.fx.attachments.w1.blobPathname], { token: SIMULATED_BLOB_TOKEN });
-      // Other workspaces' attachments are untouched.
-      expect(await t.db.select().from(attachment)).toHaveLength(2);
-    });
-
-    it("alice (Owner) can delete", async () => {
-      await deletePage(t.as("alice"), { pageId: w1Page().id });
-      expect(await readRow(w1Page().id)).toBeUndefined();
-      expect(del).toHaveBeenCalledWith([t.fx.attachments.w1.blobPathname], { token: SIMULATED_BLOB_TOKEN });
-    });
-
-    it("carol (Viewer) is Forbidden and nothing changes (no blob deleted)", async () => {
-      await expectDeniedUnchanged(() => deletePage(t.as("carol"), { pageId: w1Page().id }), ForbiddenError);
+      // DP13: the attachment row and its blob are kept (no del()).
+      expect(await t.db.select().from(attachment).where(eq(attachment.pageId, target.id))).toHaveLength(1);
+      expect(await t.db.select().from(attachment)).toHaveLength(3);
       expect(del).not.toHaveBeenCalled();
     });
 
-    it.each(["outsider", "dave", "erin"] as const)("%s (non-member) gets NotFound and nothing changes", async (who) => {
-      await expectDeniedUnchanged(() => deletePage(t.as(who), { pageId: w1Page().id }), NotFoundError);
+    it("the trashed page is listed in Trash for Owner/Editor only, with its workspace and actor", async () => {
+      await trashPage(t.as("bob"), { pageId: w1Page().id });
+      for (const who of ["alice", "bob"] as const) {
+        const trash = await listTrash(t.as(who));
+        expect(trash.map((item) => item.id)).toEqual([w1Page().id]);
+        expect(trash[0]).toMatchObject({ workspaceId: w1(), deletedByName: t.fx.users.bob.name });
+      }
+      // carol is a Viewer of W1 (DP15): her Trash view is empty.
+      expect(await listTrash(t.as("carol"))).toEqual([]);
+      // dave (W2 only) never sees W1's trash.
+      expect(await listTrash(t.as("dave"))).toEqual([]);
+    });
+
+    it("restore brings back the same page (id, content, files); a second restore is a Conflict", async () => {
+      const target = w1Page();
+      const before = await readRow(target.id);
+      await trashPage(t.as("bob"), { pageId: target.id });
+      await expect(restorePage(t.as("alice"), { pageId: target.id })).resolves.toEqual({ id: target.id, workspaceId: w1() });
+      const after = await readRow(target.id);
+      expect(after).toMatchObject({ id: target.id, workspaceId: w1(), deletedAt: null, deletedBy: null });
+      expect(after!.content).toEqual(before!.content);
+      await expect(getPage(t.as("carol"), { pageId: target.id })).resolves.toMatchObject({ id: target.id });
+      expect(await t.db.select().from(attachment).where(eq(attachment.pageId, target.id))).toHaveLength(1);
+      const error = await restorePage(t.as("alice"), { pageId: target.id }).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(ConflictError);
+      expect((error as Error).message).toBe(NOT_IN_TRASH_MESSAGE);
+    });
+
+    it("alice (Owner) can trash", async () => {
+      await trashPage(t.as("alice"), { pageId: w1Page().id });
+      expect((await readRow(w1Page().id))!.deletedAt).toBeInstanceOf(Date);
       expect(del).not.toHaveBeenCalled();
     });
 
-    it("deleting the same page twice: the second call is NotFound", async () => {
-      await deletePage(t.as("bob"), { pageId: w1Page().id });
-      await expect(deletePage(t.as("bob"), { pageId: w1Page().id })).rejects.toBeInstanceOf(NotFoundError);
-      expect(del).toHaveBeenCalledTimes(1);
+    it("carol (Viewer) can neither trash nor restore: Forbidden, nothing changes", async () => {
+      await expectDeniedUnchanged(() => trashPage(t.as("carol"), { pageId: w1Page().id }), ForbiddenError);
+      await trashPage(t.as("bob"), { pageId: w1Page().id });
+      await expectDeniedUnchanged(() => restorePage(t.as("carol"), { pageId: w1Page().id }), ForbiddenError);
+      expect(del).not.toHaveBeenCalled();
+    });
+
+    it.each(["outsider", "dave", "erin"] as const)("%s (non-member) gets NotFound for trash and restore, nothing changes", async (who) => {
+      await expectDeniedUnchanged(() => trashPage(t.as(who), { pageId: w1Page().id }), NotFoundError);
+      await trashPage(t.as("bob"), { pageId: w1Page().id });
+      await expectDeniedUnchanged(() => restorePage(t.as(who), { pageId: w1Page().id }), NotFoundError);
+    });
+
+    it("trashing the same page twice: the second call is NotFound; edits to a trashed page are NotFound", async () => {
+      await trashPage(t.as("bob"), { pageId: w1Page().id });
+      await expect(trashPage(t.as("bob"), { pageId: w1Page().id })).rejects.toBeInstanceOf(NotFoundError);
+      await expectDeniedUnchanged(() => updatePage(t.as("bob"), { pageId: w1Page().id, title: "x" }), NotFoundError);
+      expect(del).not.toHaveBeenCalled();
     });
   });
 
@@ -378,12 +418,12 @@ describe("pages (T-10..T-12)", () => {
       ["carol", false],
     ];
 
-    it.each(cells)("%s → create/edit/delete allowed=%s", async (who, allowed) => {
+    it.each(cells)("%s → create/edit/trash allowed=%s", async (who, allowed) => {
       const ctx = t.as(who);
       const calls = [
         () => createPage(ctx, { workspaceId: w1(), title: `by ${who}` }),
         () => updatePage(ctx, { pageId: w1Page().id, title: `edited by ${who}` }),
-        () => deletePage(ctx, { pageId: t.fx.pages.w1[1].id }),
+        () => trashPage(ctx, { pageId: t.fx.pages.w1[1].id }),
       ];
       for (const call of calls) {
         if (allowed) await expect(call()).resolves.toBeDefined();
@@ -401,16 +441,16 @@ describe("pages (T-10..T-12)", () => {
       await expectDeniedUnchanged(() => getPage(t.as("alice"), { pageId: w2Page().id, workspaceId: w1() }), NotFoundError);
     });
 
-    it("update/delete by alice (W1 Owner, W2 Viewer) with W1 context → Forbidden by her W2 role, 0 rows", async () => {
+    it("update/trash by alice (W1 Owner, W2 Viewer) with W1 context → Forbidden by her W2 role, 0 rows", async () => {
       const substituted = { pageId: w2Page().id, workspaceId: w1() };
       await expectDeniedUnchanged(() => updatePage(t.as("alice"), { ...substituted, title: "x" }), ForbiddenError);
-      await expectDeniedUnchanged(() => deletePage(t.as("alice"), substituted), ForbiddenError);
+      await expectDeniedUnchanged(() => trashPage(t.as("alice"), substituted), ForbiddenError);
     });
 
-    it("update/delete by dave (W2 Owner) under a W1 route → NotFound, 0 rows", async () => {
+    it("update/trash by dave (W2 Owner) under a W1 route → NotFound, 0 rows", async () => {
       const substituted = { pageId: w2Page().id, workspaceId: w1() };
       await expectDeniedUnchanged(() => updatePage(t.as("dave"), { ...substituted, title: "x" }), NotFoundError);
-      await expectDeniedUnchanged(() => deletePage(t.as("dave"), substituted), NotFoundError);
+      await expectDeniedUnchanged(() => trashPage(t.as("dave"), substituted), NotFoundError);
       await expectDeniedUnchanged(() => getPage(t.as("dave"), substituted), NotFoundError);
     });
 
@@ -418,7 +458,7 @@ describe("pages (T-10..T-12)", () => {
       const substituted = { pageId: w2Page().id, workspaceId: w1() };
       await expectDeniedUnchanged(() => getPage(t.as("bob"), substituted), NotFoundError);
       await expectDeniedUnchanged(() => updatePage(t.as("bob"), { ...substituted, title: "x" }), NotFoundError);
-      await expectDeniedUnchanged(() => deletePage(t.as("bob"), substituted), NotFoundError);
+      await expectDeniedUnchanged(() => trashPage(t.as("bob"), substituted), NotFoundError);
     });
 
     it("a non-string or unknown route workspace is NotFound, never a DB error", async () => {

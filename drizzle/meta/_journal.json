@@ -22,6 +22,27 @@
       "when": 1790782394947,
       "tag": "0002_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790888880942,
+      "tag": "0003_page_workspace_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790888902790,
+      "tag": "0004_attachment_fk_deferrable",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790888928132,
+      "tag": "0005_calendar_event",
+      "breakpoints": true
     }
   ]
 }

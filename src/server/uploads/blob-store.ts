@@ -1,4 +1,4 @@
-import { BlobNotFoundError, del, get, head } from "@vercel/blob";
+import { BlobNotFoundError, copy, del, get, head } from "@vercel/blob";
 import { getUploadConfig, type UploadConfig } from "./config";
 
 /**
@@ -40,6 +40,31 @@ export async function openUploadedBlob(pathname: string, config: UploadConfig): 
   const result = await get(pathname, { access: "private", token: config.token });
   if (!result || result.statusCode !== 200 || !result.stream) return null;
   return { stream: result.stream, size: result.blob.size };
+}
+
+/**
+ * Copy a private blob to a NEW pathname (Duplicate and Move, PRD §12 E8/E9).
+ *
+ * `toPathname` is the requested prefix + file name; Blob appends a random
+ * suffix (`addRandomSuffix`) and overwriting is forbidden, so every attempt
+ * produces fresh pathnames that belong only to that attempt. That is what
+ * makes cleanup after a failure safe: the caller deletes exactly the
+ * pathnames returned here, never anything that existed before.
+ */
+export async function copyUploadedBlob(
+  fromPathname: string,
+  toPathname: string,
+  contentType: string,
+  config: UploadConfig,
+): Promise<string> {
+  const result = await copy(fromPathname, toPathname, {
+    access: "private",
+    token: config.token,
+    contentType,
+    addRandomSuffix: true,
+    allowOverwrite: false,
+  });
+  return result.pathname;
 }
 
 /**

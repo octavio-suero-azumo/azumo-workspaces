@@ -18,8 +18,9 @@ describe("workspaces (T-08)", () => {
     it("alice (W1 Owner, W2 Viewer) sees exactly W1 and W2, never W3", async () => {
       const list = await listMyWorkspaces(t.as("alice"));
       expect(list).toEqual([
-        { id: t.fx.workspaces.w1.id, name: t.fx.workspaces.w1.name, role: "owner" },
-        { id: t.fx.workspaces.w2.id, name: t.fx.workspaces.w2.name, role: "viewer" },
+        // `icon: null` = default icon (scope expansion E2, 2026-10-01).
+        { id: t.fx.workspaces.w1.id, name: t.fx.workspaces.w1.name, icon: null, role: "owner" },
+        { id: t.fx.workspaces.w2.id, name: t.fx.workspaces.w2.name, icon: null, role: "viewer" },
       ]);
       expect(list.map((w) => w.id)).not.toContain(t.fx.workspaces.w3.id);
     });

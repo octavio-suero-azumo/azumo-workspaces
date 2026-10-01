@@ -1,0 +1,15 @@
+-- Custom SQL migration (scope expansion E9 "Move to", 2026-10-01).
+--
+-- Moving a page between workspaces must change, in ONE transaction, both
+-- `page.workspace_id` and every attachment's (`workspace_id`, `blob_pathname`).
+-- The pathname-prefix CHECK is evaluated per row and can never be deferred, so
+-- each attachment row is updated in a single statement (new workspace + new
+-- pathname together). That temporarily breaks the composite FK until the page
+-- row is updated too, so the FK is made DEFERRABLE and the move transaction
+-- runs `SET CONSTRAINTS attachment_page_workspace_fk DEFERRED`.
+--
+-- INITIALLY IMMEDIATE keeps the previous behaviour for every other statement:
+-- outside an explicit `SET CONSTRAINTS ... DEFERRED`, the FK is still checked
+-- at the end of each statement. No data is changed and the constraint is not
+-- re-validated (ALTER CONSTRAINT only changes its deferrability).
+ALTER TABLE "attachment" ALTER CONSTRAINT "attachment_page_workspace_fk" DEFERRABLE INITIALLY IMMEDIATE;

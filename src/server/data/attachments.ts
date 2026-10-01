@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import {
   ATTACHMENT_DISPLAY_NAME_MAX,
@@ -13,7 +13,7 @@ import {
   type UploadLimits,
 } from "@/lib/attachment-rules";
 import { authorize } from "@/server/authz/authorize";
-import { attachment } from "@/server/db/schema";
+import { attachment, page } from "@/server/db/schema";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
 import { deleteBlobsBestEffort, headUploadedBlob } from "@/server/uploads/blob-store";
 import { requireUploadConfig } from "@/server/uploads/config";
@@ -235,28 +235,48 @@ export async function registerUpload(ctx: DataContext, input: unknown): Promise<
   }
 
   let inserted: AttachmentView | undefined;
+  let pageGone = false;
   try {
-    [inserted] = await ctx.db
-      .insert(attachment)
-      .values({
-        pageId: authorizedPageId,
-        workspaceId,
-        kind: UPLOAD_KIND,
-        displayName,
-        blobPathname: pathname,
-        contentType,
-        sizeBytes: blob.size,
-        createdBy: ctx.userId,
-      })
-      .onConflictDoNothing({ target: attachment.blobPathname })
-      .returning(viewColumns);
+    inserted = await ctx.db.transaction(async (tx) => {
+      // The page must still be live in the authorized workspace. FOR SHARE
+      // blocks a concurrent Trash/Move of this page row until the row is in,
+      // so an attachment can never land on a trashed or moved page (AC-56).
+      const [live] = await tx
+        .select({ id: page.id })
+        .from(page)
+        .where(and(eq(page.id, authorizedPageId), eq(page.workspaceId, workspaceId), isNull(page.deletedAt)))
+        .for("share");
+      if (!live) {
+        pageGone = true;
+        return undefined;
+      }
+      const [row] = await tx
+        .insert(attachment)
+        .values({
+          pageId: authorizedPageId,
+          workspaceId,
+          kind: UPLOAD_KIND,
+          displayName,
+          blobPathname: pathname,
+          contentType,
+          sizeBytes: blob.size,
+          createdBy: ctx.userId,
+        })
+        .onConflictDoNothing({ target: attachment.blobPathname })
+        .returning(viewColumns);
+      return row;
+    });
   } catch (error) {
     if (isForeignKeyViolation(error)) {
-      // The page was deleted after authorize(): nothing to attach it to.
-      await deleteBlobsBestEffort([pathname]);
-      throw new NotFoundError();
+      // The page left this workspace after authorize(): nothing to attach it to.
+      pageGone = true;
+    } else {
+      throw error;
     }
-    throw error;
+  }
+  if (pageGone) {
+    await deleteBlobsBestEffort([pathname]);
+    throw new NotFoundError();
   }
   if (!inserted) {
     // Already registered (the existing row owns the blob; keep it).

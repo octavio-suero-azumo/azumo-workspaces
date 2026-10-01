@@ -17,7 +17,7 @@ const ROLE_OPTIONS = [
 function ErrorText({ state }: { state: { ok: boolean; error?: { message: string } } | null }) {
   if (!state || state.ok || !state.error) return null;
   return (
-    <p role="alert" className="text-xs text-red-700">
+    <p role="alert" className="text-xs text-danger">
       {state.error.message}
     </p>
   );
@@ -30,19 +30,13 @@ export function AddMemberForm({ workspaceId }: { workspaceId: string }) {
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-2" aria-label="Add member" data-testid="add-member-form">
       <input type="hidden" name="workspaceId" value={workspaceId} />
-      <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
+      <label className="ui-label min-w-48 flex-1">
         Email
-        <input
-          name="email"
-          type="email"
-          required
-          placeholder="colleague@company"
-          className="rounded border border-neutral-300 px-2 py-1 text-sm font-normal"
-        />
+        <input name="email" type="email" required placeholder="colleague@company" className="ui-input" autoComplete="off" />
       </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
+      <label className="ui-label">
         Role
-        <select name="role" defaultValue="viewer" className="rounded border border-neutral-300 px-2 py-1 text-sm font-normal">
+        <select name="role" defaultValue="viewer" className="ui-select">
           {ROLE_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -50,17 +44,13 @@ export function AddMemberForm({ workspaceId }: { workspaceId: string }) {
           ))}
         </select>
       </label>
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded bg-neutral-900 px-3 py-1 text-sm font-medium text-white disabled:opacity-60"
-      >
+      <button type="submit" disabled={pending} className="ui-button-primary">
         {pending ? "Adding…" : "Add member"}
       </button>
       <div className="basis-full">
         <ErrorText state={state} />
         {state?.ok ? (
-          <p role="status" className="text-xs text-green-700">
+          <p role="status" className="text-xs text-success">
             Added {state.data.email}.
           </p>
         ) : null}
@@ -74,21 +64,16 @@ type ChangeState = Awaited<ReturnType<typeof changeMemberRoleAction>> | null;
 export function ChangeRoleForm({ membershipId, role, label }: { membershipId: string; role: string; label: string }) {
   const [state, formAction, pending] = useActionState<ChangeState, FormData>(changeMemberRoleAction, null);
   return (
-    <form action={formAction} className="flex items-center gap-2" aria-label={`Change role of ${label}`}>
+    <form action={formAction} className="flex flex-wrap items-center gap-2" aria-label={`Change role of ${label}`}>
       <input type="hidden" name="membershipId" value={membershipId} />
-      <select
-        name="role"
-        defaultValue={role}
-        aria-label={`Role of ${label}`}
-        className="rounded border border-neutral-300 px-2 py-1 text-sm"
-      >
+      <select name="role" defaultValue={role} aria-label={`Role of ${label}`} className="ui-select w-auto">
         {ROLE_OPTIONS.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
         ))}
       </select>
-      <button type="submit" disabled={pending} className="rounded border border-neutral-300 px-2 py-1 text-xs disabled:opacity-60">
+      <button type="submit" disabled={pending} className="ui-button-secondary">
         {pending ? "Saving…" : "Save role"}
       </button>
       <ErrorText state={state} />
@@ -103,11 +88,7 @@ export function RemoveMemberForm({ membershipId, label }: { membershipId: string
   return (
     <form action={formAction} className="flex items-center gap-2" aria-label={`Remove ${label}`}>
       <input type="hidden" name="membershipId" value={membershipId} />
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50 disabled:opacity-60"
-      >
+      <button type="submit" disabled={pending} className="ui-button-danger">
         {pending ? "Removing…" : "Remove"}
       </button>
       <ErrorText state={state} />

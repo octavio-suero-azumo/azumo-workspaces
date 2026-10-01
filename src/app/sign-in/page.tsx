@@ -23,15 +23,22 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
   const message = code ? (Object.hasOwn(MESSAGES, code) ? MESSAGES[code] : GENERIC_ERROR) : undefined;
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
-      <h1 className="text-2xl font-semibold">Sign in to Azumo Workspaces</h1>
-      <p className="text-sm text-neutral-500">Use your corporate Google Workspace account.</p>
-      {message ? (
-        <p role="alert" data-testid="sign-in-error" className="max-w-md text-center text-sm text-red-700">
-          {message}
-        </p>
-      ) : null}
-      <GoogleSignInButton />
+    <main className="flex min-h-dvh flex-1 flex-col items-center justify-center bg-bg px-4 py-12">
+      <div className="flex w-full max-w-sm flex-col items-center gap-5 text-center">
+        <span aria-hidden="true" className="flex h-12 w-12 items-center justify-center rounded-lg bg-sidebar text-2xl">
+          📁
+        </span>
+        <div className="flex flex-col gap-2">
+          <h1 className="text-2xl font-bold">Sign in to Azumo Workspaces</h1>
+          <p className="text-sm text-muted">Use your corporate Google Workspace account.</p>
+        </div>
+        {message ? (
+          <p role="alert" data-testid="sign-in-error" className="w-full rounded-md bg-hover px-3 py-2 text-sm text-danger">
+            {message}
+          </p>
+        ) : null}
+        <GoogleSignInButton />
+      </div>
     </main>
   );
 }
