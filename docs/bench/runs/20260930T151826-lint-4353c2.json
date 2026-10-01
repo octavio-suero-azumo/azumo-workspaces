@@ -1,0 +1,17 @@
+{
+  "runId": "20260930T151826-lint-4353c2",
+  "check": "lint",
+  "kind": "static",
+  "command": "npm run lint",
+  "startedAt": "2026-09-30T15:18:26.728Z",
+  "durationMs": 1835,
+  "exitCode": 0,
+  "signal": null,
+  "status": "passed",
+  "testsDiscovered": 0,
+  "testsPassed": 0,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "outputExcerpt": "\n> azumo-workspaces@0.1.0 lint\n> eslint\n\n",
+  "taskId": "T-11"
+}

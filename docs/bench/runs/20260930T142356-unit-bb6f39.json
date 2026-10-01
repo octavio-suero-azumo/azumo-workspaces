@@ -1,0 +1,17 @@
+{
+  "runId": "20260930T142356-unit-bb6f39",
+  "check": "unit",
+  "kind": "test",
+  "command": "npx vitest run --project unit --reporter=json --outputFile=docs/bench/runs/.tmp-20260930T142356-unit-bb6f39.json",
+  "startedAt": "2026-09-30T14:23:56.990Z",
+  "durationMs": 904,
+  "exitCode": 0,
+  "signal": null,
+  "status": "passed",
+  "testsDiscovered": 170,
+  "testsPassed": 170,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "outputExcerpt": "JSON report written to /Users/octavio/Documents/azumo-workspaces/docs/bench/runs/.tmp-20260930T142356-unit-bb6f39.json\n",
+  "taskId": "T-05"
+}

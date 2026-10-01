@@ -1,0 +1,17 @@
+{
+  "runId": "20260930T155443-typecheck-33a898",
+  "check": "typecheck",
+  "kind": "static",
+  "command": "npm run typecheck",
+  "startedAt": "2026-09-30T15:54:43.376Z",
+  "durationMs": 2650,
+  "exitCode": 0,
+  "signal": null,
+  "status": "passed",
+  "testsDiscovered": 0,
+  "testsPassed": 0,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "outputExcerpt": "\n> azumo-workspaces@0.1.0 typecheck\n> next typegen && tsc --noEmit\n\nGenerating route types...\n✓ Types generated successfully\n",
+  "taskId": "T-15"
+}

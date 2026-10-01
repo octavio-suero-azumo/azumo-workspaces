@@ -1,0 +1,17 @@
+{
+  "runId": "20260930T122805-integration-a176fe",
+  "check": "integration",
+  "kind": "test",
+  "command": "npx vitest run --project integration --reporter=json --outputFile=docs/bench/runs/.tmp-20260930T122805-integration-a176fe.json",
+  "startedAt": "2026-09-30T12:28:05.054Z",
+  "durationMs": 258,
+  "exitCode": 1,
+  "signal": null,
+  "status": "no_tests",
+  "testsDiscovered": 0,
+  "testsPassed": 0,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "outputExcerpt": "JSON report written to /Users/octavio/Documents/azumo-workspaces/docs/bench/runs/.tmp-20260930T122805-integration-a176fe.json\n",
+  "taskId": "B-MCP"
+}

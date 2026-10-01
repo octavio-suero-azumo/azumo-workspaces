@@ -1,0 +1,505 @@
+[
+  {
+    "id": "B-MCP",
+    "title": "Local bench MCP server (tools/bench-mcp)",
+    "status": "in_progress",
+    "requirements": [
+      "R5.2"
+    ],
+    "acceptance": [],
+    "runIds": [
+      "20260930T122802-typecheck-6565a0",
+      "20260930T122804-unit-0f85df",
+      "20260930T122805-integration-a176fe"
+    ],
+    "notes": "Self-tests: npm run test:mcp 51/51 (2026-09-30, run by coordinator; not a registered bench check, so the done-guard cannot close it with its own evidence). Real invocations: every run in docs/bench/runs was produced via MCP stdio calls.",
+    "increment": "A",
+    "updatedAt": "2026-09-30T17:01:06.604Z"
+  },
+  {
+    "id": "T-01",
+    "title": "Scaffold Next.js app, scripts, gitignore, env example",
+    "status": "done",
+    "requirements": [
+      "R6.2"
+    ],
+    "acceptance": [
+      "AC-34"
+    ],
+    "runIds": [
+      "20260930T123140-lint-0c680f",
+      "20260930T123142-typecheck-fb2570",
+      "20260930T123143-unit-36d8f0",
+      "20260930T123143-build-cb2c9e"
+    ],
+    "notes": "",
+    "increment": "A",
+    "updatedAt": "2026-09-30T12:32:35.626Z"
+  },
+  {
+    "id": "T-02",
+    "title": "env.ts fail-closed validation",
+    "status": "done",
+    "requirements": [
+      "R1.3"
+    ],
+    "acceptance": [
+      "AC-06"
+    ],
+    "runIds": [
+      "20260930T123143-unit-36d8f0",
+      "20260930T123142-typecheck-fb2570"
+    ],
+    "notes": "",
+    "increment": "A",
+    "updatedAt": "2026-09-30T12:32:35.780Z"
+  },
+  {
+    "id": "T-03a",
+    "title": "Better Auth schema, db client, migrations, auth config",
+    "status": "done",
+    "requirements": [
+      "R1.1"
+    ],
+    "acceptance": [
+      "AC-36"
+    ],
+    "runIds": [
+      "20260930T135413-lint-2cf46a",
+      "20260930T135415-typecheck-a722b4",
+      "20260930T135416-unit-334871",
+      "20260930T135417-integration-9f55f3",
+      "20260930T135425-e2e-c3b665",
+      "20260930T135430-build-aeb903"
+    ],
+    "notes": "",
+    "increment": "B",
+    "updatedAt": "2026-09-30T13:54:43.846Z"
+  },
+  {
+    "id": "T-06a",
+    "title": "Domain guard hd+email_verified at user and session creation",
+    "status": "done",
+    "requirements": [
+      "R1.2"
+    ],
+    "acceptance": [
+      "AC-05"
+    ],
+    "runIds": [
+      "20260930T135413-lint-2cf46a",
+      "20260930T135415-typecheck-a722b4",
+      "20260930T135416-unit-334871",
+      "20260930T135417-integration-9f55f3",
+      "20260930T135425-e2e-c3b665",
+      "20260930T135430-build-aeb903"
+    ],
+    "notes": "AC-02..AC-04 verified only with SIMULATED Google claims + DP8 sessions. Real verification TC-40..42 / AC-35 pending (P4, P9, OAuth client, test accounts).",
+    "increment": "B",
+    "updatedAt": "2026-09-30T14:31:32.074Z"
+  },
+  {
+    "id": "T-06b",
+    "title": "proxy redirect, requireSession, action wrapper, sign-in/out",
+    "status": "done",
+    "requirements": [
+      "R1.4"
+    ],
+    "acceptance": [
+      "AC-01"
+    ],
+    "runIds": [
+      "20260930T135413-lint-2cf46a",
+      "20260930T135415-typecheck-a722b4",
+      "20260930T135416-unit-334871",
+      "20260930T135417-integration-9f55f3",
+      "20260930T135425-e2e-c3b665",
+      "20260930T135430-build-aeb903"
+    ],
+    "notes": "",
+    "increment": "B",
+    "updatedAt": "2026-09-30T13:54:44.164Z"
+  },
+  {
+    "id": "T-07",
+    "title": "Test-only session helper (no route) + e2e redirect",
+    "status": "done",
+    "requirements": [
+      "R1.1"
+    ],
+    "acceptance": [
+      "AC-36"
+    ],
+    "runIds": [
+      "20260930T135413-lint-2cf46a",
+      "20260930T135415-typecheck-a722b4",
+      "20260930T135416-unit-334871",
+      "20260930T135417-integration-9f55f3",
+      "20260930T135425-e2e-c3b665",
+      "20260930T135430-build-aeb903"
+    ],
+    "notes": "",
+    "increment": "B",
+    "updatedAt": "2026-09-30T13:54:44.318Z"
+  },
+  {
+    "id": "T-03b",
+    "title": "Tables workspace, membership, page + migration",
+    "status": "done",
+    "requirements": [
+      "R3.1",
+      "R4.1"
+    ],
+    "acceptance": [
+      "AC-14"
+    ],
+    "runIds": [
+      "20260930T151826-lint-4353c2",
+      "20260930T151828-typecheck-77cb5a",
+      "20260930T151829-unit-e39835",
+      "20260930T151830-integration-5f7b33",
+      "20260930T151855-e2e-8ce5f0",
+      "20260930T151909-build-6c13cc"
+    ],
+    "notes": "Implemented in increment C (runs 20260930T1423*/1424* passed); re-verified and closed with increment D runs 20260930T1518*/1519* after correction cycle 1.",
+    "increment": "C",
+    "updatedAt": "2026-09-30T16:31:25.920Z"
+  },
+  {
+    "id": "T-03c",
+    "title": "Test harness: fixtures, per-test reset, pglite-socket e2e DB",
+    "status": "done",
+    "requirements": [
+      "R2.3"
+    ],
+    "acceptance": [],
+    "runIds": [
+      "20260930T151826-lint-4353c2",
+      "20260930T151828-typecheck-77cb5a",
+      "20260930T151829-unit-e39835",
+      "20260930T151830-integration-5f7b33",
+      "20260930T151855-e2e-8ce5f0",
+      "20260930T151909-build-6c13cc"
+    ],
+    "notes": "Implemented in increment C (runs 20260930T1423*/1424* passed); re-verified and closed with increment D runs 20260930T1518*/1519* after correction cycle 1.",
+    "increment": "C",
+    "updatedAt": "2026-09-30T16:31:26.073Z"
+  },
+  {
+    "id": "T-04",
+    "title": "permissions.ts can(role,action) matrix",
+    "status": "done",
+    "requirements": [
+      "R3.2"
+    ],
+    "acceptance": [
+      "AC-15"
+    ],
+    "runIds": [
+      "20260930T151826-lint-4353c2",
+      "20260930T151828-typecheck-77cb5a",
+      "20260930T151829-unit-e39835",
+      "20260930T151830-integration-5f7b33",
+      "20260930T151855-e2e-8ce5f0",
+      "20260930T151909-build-6c13cc"
+    ],
+    "notes": "Implemented in increment C (runs 20260930T1423*/1424* passed); re-verified and closed with increment D runs 20260930T1518*/1519* after correction cycle 1.",
+    "increment": "C",
+    "updatedAt": "2026-09-30T16:31:26.224Z"
+  },
+  {
+    "id": "T-05",
+    "title": "authorize() single entry point + scoped data layer + per-request hd re-check",
+    "status": "done",
+    "requirements": [
+      "R2.3",
+      "R3.2"
+    ],
+    "acceptance": [
+      "AC-10",
+      "AC-11",
+      "AC-12",
+      "AC-38"
+    ],
+    "runIds": [
+      "20260930T151826-lint-4353c2",
+      "20260930T151828-typecheck-77cb5a",
+      "20260930T151829-unit-e39835",
+      "20260930T151830-integration-5f7b33",
+      "20260930T151855-e2e-8ce5f0",
+      "20260930T151909-build-6c13cc"
+    ],
+    "notes": "Implemented in increment C (runs 20260930T1423*/1424* passed); re-verified and closed with increment D runs 20260930T1518*/1519* after correction cycle 1.",
+    "increment": "C",
+    "updatedAt": "2026-09-30T16:31:26.374Z"
+  },
+  {
+    "id": "T-08",
+    "title": "Workspaces: create, list, switch, app shell",
+    "status": "done",
+    "requirements": [
+      "R2.1",
+      "R2.2",
+      "R2.4"
+    ],
+    "acceptance": [
+      "AC-08",
+      "AC-09",
+      "AC-13",
+      "AC-37"
+    ],
+    "runIds": [
+      "20260930T151826-lint-4353c2",
+      "20260930T151828-typecheck-77cb5a",
+      "20260930T151829-unit-e39835",
+      "20260930T151830-integration-5f7b33",
+      "20260930T151855-e2e-8ce5f0",
+      "20260930T151909-build-6c13cc"
+    ],
+    "notes": "Implemented in increment C (runs 20260930T1423*/1424* passed); re-verified and closed with increment D runs 20260930T1518*/1519* after correction cycle 1.",
+    "increment": "C",
+    "updatedAt": "2026-09-30T16:31:26.523Z"
+  },
+  {
+    "id": "T-09",
+    "title": "Members: list, add, change role, remove, last-Owner guard",
+    "status": "done",
+    "requirements": [
+      "R3.1",
+      "R3.3",
+      "R3.4"
+    ],
+    "acceptance": [
+      "AC-14",
+      "AC-16",
+      "AC-17",
+      "AC-18"
+    ],
+    "runIds": [
+      "20260930T151826-lint-4353c2",
+      "20260930T151828-typecheck-77cb5a",
+      "20260930T151829-unit-e39835",
+      "20260930T151830-integration-5f7b33",
+      "20260930T151855-e2e-8ce5f0",
+      "20260930T151909-build-6c13cc"
+    ],
+    "notes": "Implemented in increment C (runs 20260930T1423*/1424* passed); re-verified and closed with increment D runs 20260930T1518*/1519* after correction cycle 1.",
+    "increment": "C",
+    "updatedAt": "2026-09-30T16:31:26.673Z"
+  },
+  {
+    "id": "T-10",
+    "title": "Pages: create, list, view",
+    "status": "done",
+    "requirements": [
+      "R4.1"
+    ],
+    "acceptance": [
+      "AC-19",
+      "AC-20"
+    ],
+    "runIds": [
+      "20260930T151826-lint-4353c2",
+      "20260930T151828-typecheck-77cb5a",
+      "20260930T151829-unit-e39835",
+      "20260930T151830-integration-5f7b33",
+      "20260930T151855-e2e-8ce5f0",
+      "20260930T151909-build-6c13cc"
+    ],
+    "notes": "",
+    "increment": "D",
+    "updatedAt": "2026-09-30T15:19:49.518Z"
+  },
+  {
+    "id": "T-11",
+    "title": "Tiptap editor, validated JSON content, persistence",
+    "status": "done",
+    "requirements": [
+      "PR1",
+      "PR2"
+    ],
+    "acceptance": [
+      "AC-27",
+      "AC-29",
+      "AC-30"
+    ],
+    "runIds": [
+      "20260930T151826-lint-4353c2",
+      "20260930T151828-typecheck-77cb5a",
+      "20260930T151829-unit-e39835",
+      "20260930T151830-integration-5f7b33",
+      "20260930T151855-e2e-8ce5f0",
+      "20260930T151909-build-6c13cc"
+    ],
+    "notes": "",
+    "increment": "D",
+    "updatedAt": "2026-09-30T15:19:49.671Z"
+  },
+  {
+    "id": "T-12",
+    "title": "Page delete",
+    "status": "done",
+    "requirements": [
+      "PR1"
+    ],
+    "acceptance": [
+      "AC-28"
+    ],
+    "runIds": [
+      "20260930T151826-lint-4353c2",
+      "20260930T151828-typecheck-77cb5a",
+      "20260930T151829-unit-e39835",
+      "20260930T151830-integration-5f7b33",
+      "20260930T151855-e2e-8ce5f0",
+      "20260930T151909-build-6c13cc"
+    ],
+    "notes": "",
+    "increment": "D",
+    "updatedAt": "2026-09-30T15:19:49.822Z"
+  },
+  {
+    "id": "T-13",
+    "title": "attachment table, composite FK, authorize attachment branch, list",
+    "status": "done",
+    "requirements": [
+      "R4.2",
+      "R4.3"
+    ],
+    "acceptance": [
+      "AC-25"
+    ],
+    "runIds": [
+      "20260930T155441-lint-4cffaf",
+      "20260930T155443-typecheck-33a898",
+      "20260930T155446-unit-ffbe10",
+      "20260930T155446-integration-8badf5",
+      "20260930T155515-e2e-148fd8",
+      "20260930T155533-build-e62f3b"
+    ],
+    "notes": "",
+    "increment": "E",
+    "updatedAt": "2026-09-30T15:56:09.907Z"
+  },
+  {
+    "id": "T-15",
+    "title": "Private Blob upload token route + registerUpload (Blob SIMULATED)",
+    "status": "done",
+    "requirements": [
+      "R4.2"
+    ],
+    "acceptance": [
+      "AC-22",
+      "AC-23"
+    ],
+    "runIds": [
+      "20260930T155441-lint-4cffaf",
+      "20260930T155443-typecheck-33a898",
+      "20260930T155446-unit-ffbe10",
+      "20260930T155446-integration-8badf5",
+      "20260930T155515-e2e-148fd8",
+      "20260930T155533-build-e62f3b"
+    ],
+    "notes": "Code and authorization verified with Blob SIMULATED (vi.mock). Real private Blob behaviour (TC-43) pending: needs Blob store token (P4).",
+    "increment": "E",
+    "updatedAt": "2026-09-30T15:56:10.060Z"
+  },
+  {
+    "id": "T-16",
+    "title": "Authorizing download route + delete with del() (Blob SIMULATED)",
+    "status": "done",
+    "requirements": [
+      "R4.3",
+      "R4.4"
+    ],
+    "acceptance": [
+      "AC-24",
+      "AC-26",
+      "AC-28"
+    ],
+    "runIds": [
+      "20260930T155441-lint-4cffaf",
+      "20260930T155443-typecheck-33a898",
+      "20260930T155446-unit-ffbe10",
+      "20260930T155446-integration-8badf5",
+      "20260930T155515-e2e-148fd8",
+      "20260930T155533-build-e62f3b"
+    ],
+    "notes": "Code and authorization verified with Blob SIMULATED (vi.mock). Real private Blob behaviour (TC-43) pending: needs Blob store token (P4).",
+    "increment": "E",
+    "updatedAt": "2026-09-30T15:56:10.215Z"
+  },
+  {
+    "id": "T-17a",
+    "title": "QA security suite: isolation and ID substitution",
+    "status": "done",
+    "requirements": [
+      "R2.3"
+    ],
+    "acceptance": [
+      "AC-10",
+      "AC-11",
+      "AC-37",
+      "AC-38"
+    ],
+    "runIds": [
+      "20260930T162534-lint-1dbbaa",
+      "20260930T162536-typecheck-4224c9",
+      "20260930T162537-unit-429382",
+      "20260930T162538-integration-5c5d9c",
+      "20260930T162610-e2e-681e46",
+      "20260930T162635-build-5f1012"
+    ],
+    "notes": "qa agent a04a27ab16fdd7b4e; simulated auth (DP8); real Google TC-40..42 manual pending",
+    "increment": "F",
+    "updatedAt": "2026-09-30T16:26:50.762Z"
+  },
+  {
+    "id": "T-17b",
+    "title": "QA security suite: role x action, server-side enforcement, UI visibility",
+    "status": "done",
+    "requirements": [
+      "R3.2",
+      "R3.4"
+    ],
+    "acceptance": [
+      "AC-15",
+      "AC-18"
+    ],
+    "runIds": [
+      "20260930T162534-lint-1dbbaa",
+      "20260930T162536-typecheck-4224c9",
+      "20260930T162537-unit-429382",
+      "20260930T162538-integration-5c5d9c",
+      "20260930T162610-e2e-681e46",
+      "20260930T162635-build-5f1012"
+    ],
+    "notes": "qa agent a04a27ab16fdd7b4e; simulated auth (DP8); real Google TC-40..42 manual pending",
+    "increment": "F",
+    "updatedAt": "2026-09-30T16:26:50.919Z"
+  },
+  {
+    "id": "T-18p",
+    "title": "Pre-deploy hardening (RV-F-01,03,05,06,07,08,10) + deploy runbook",
+    "status": "done",
+    "requirements": [
+      "R6.1",
+      "R6.2"
+    ],
+    "acceptance": [
+      "AC-34",
+      "AC-36"
+    ],
+    "runIds": [
+      "20260930T165925-lint-7960b1",
+      "20260930T165927-typecheck-439d13",
+      "20260930T165930-unit-14623f",
+      "20260930T165931-integration-7ee50c",
+      "20260930T170005-e2e-aa668e",
+      "20260930T170033-e2e-prod-92e082",
+      "20260930T170051-build-1c3ae8"
+    ],
+    "notes": "developer ae95563e97c153b69; real Neon/Blob/SSO still unverified (P4)",
+    "increment": "F",
+    "updatedAt": "2026-09-30T17:01:06.449Z"
+  }
+]

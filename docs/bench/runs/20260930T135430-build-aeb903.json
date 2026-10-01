@@ -1,0 +1,17 @@
+{
+  "runId": "20260930T135430-build-aeb903",
+  "check": "build",
+  "kind": "build",
+  "command": "npm run build",
+  "startedAt": "2026-09-30T13:54:30.805Z",
+  "durationMs": 3222,
+  "exitCode": 0,
+  "signal": null,
+  "status": "passed",
+  "testsDiscovered": 0,
+  "testsPassed": 0,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "outputExcerpt": "\n> azumo-workspaces@0.1.0 build\n> next build\n\n▲ Next.js 16.3.7 (Turbopack)\n✓ Running next.config.ts took 9ms\n\n  Creating an optimized production build ...\n✓ Compiled successfully in 474ms\n  Running TypeScript ...\n  Finished TypeScript in 961ms ...\n  Collecting page data using 7 workers ...\n  Generating static pages using 7 workers (0/5) ...\n  Generating static pages using 7 workers (1/5) \r\n  Generating static pages using 7 workers (2/5) \r\n  Generating static pages using 7 workers (3/5) \r\n✓ Generating static pages using 7 workers (5/5) in 233ms\n  Finalizing page optimization ...\n\nRoute (app)\n┌ ƒ /\n├ ○ /_not-found\n├ ƒ /api/auth/[...all]\n└ ƒ /sign-in\n\n\nƒ Proxy (Middleware)\n\n○  (Static)   prerendered as static content\nƒ  (Dynamic)  server-rendered on demand\n\n",
+  "taskId": "T-06a"
+}
