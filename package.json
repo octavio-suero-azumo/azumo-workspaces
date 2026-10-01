@@ -1,0 +1,53 @@
+{
+  "name": "azumo-workspaces",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:e2e": "playwright test",
+    "test:e2e:prod": "E2E_PROD=1 playwright test",
+    "test:mcp": "node --test 'tools/bench-mcp/test/*.test.mjs'",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node scripts/migrate.mjs --target=auto",
+    "db:migrate:prod": "node scripts/migrate.mjs --target=prod",
+    "db:migrate:local": "node scripts/migrate.mjs --target=local"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@tiptap/pm": "^3.31.3",
+    "@tiptap/react": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
+    "@vercel/blob": "^2.8.0",
+    "better-auth": "^1.7.6",
+    "drizzle-orm": "^0.45.3",
+    "next": "16.3.7",
+    "postgres": "^3.4.9",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite-socket": "^0.2.11",
+    "@modelcontextprotocol/sdk": "^1.31.0",
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.20.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.7",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.2"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1790772008523,
+      "tag": "0000_auth_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790776950790,
+      "tag": "0001_workspaces_members_pages",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790782394947,
+      "tag": "0002_attachments",
+      "breakpoints": true
+    }
+  ]
+}
