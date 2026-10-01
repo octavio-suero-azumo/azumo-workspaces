@@ -21,7 +21,7 @@ import { uploadPathPrefix } from "@/lib/attachment-rules";
 import type { Role } from "@/server/authz/permissions";
 import type { DataContext } from "@/server/data/context";
 import type { AppDatabase } from "@/server/db/client";
-import { attachment, membership, page, user, workspace } from "@/server/db/schema";
+import { attachment, calendarEvent, membership, page, user, workspace } from "@/server/db/schema";
 
 export const FIXTURE_DOMAIN = "allowed.test";
 
@@ -196,7 +196,7 @@ export async function seedFixtures(db: AppDatabase): Promise<Fixtures> {
 export async function resetDatabase(db: AppDatabase): Promise<void> {
   await db.execute(
     sql.raw(
-      'TRUNCATE TABLE "attachment", "page", "membership", "workspace", "verification", "account", "session", "user" CASCADE',
+      'TRUNCATE TABLE "calendar_event", "attachment", "page", "membership", "workspace", "verification", "account", "session", "user" CASCADE',
     ),
   );
 }
@@ -214,11 +214,12 @@ export function ctxFor(db: AppDatabase, fx: Fixtures, key: FixtureUserKey): Data
 
 /** Full, ordered copy of the app tables, to prove "no DB change" (PRD §10 "Denied"). */
 export async function snapshotAppTables(db: AppDatabase) {
-  const [workspaces, memberships, pages, attachments] = await Promise.all([
+  const [workspaces, memberships, pages, attachments, events] = await Promise.all([
     db.select().from(workspace).orderBy(asc(workspace.id)),
     db.select().from(membership).orderBy(asc(membership.id)),
     db.select().from(page).orderBy(asc(page.id)),
     db.select().from(attachment).orderBy(asc(attachment.id)),
+    db.select().from(calendarEvent).orderBy(asc(calendarEvent.id)),
   ]);
-  return { workspaces, memberships, pages, attachments };
+  return { workspaces, memberships, pages, attachments, events };
 }

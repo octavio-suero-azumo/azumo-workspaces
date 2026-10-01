@@ -29,7 +29,7 @@ import {
   changeMemberRoleHandler,
   removeMemberHandler,
 } from "@/app/(app)/w/[workspaceId]/members/handlers";
-import { createPageHandler, deletePageHandler, savePageHandler } from "@/app/(app)/w/[workspaceId]/p/handlers";
+import { createPageHandler, restorePageHandler, savePageHandler, trashPageHandler } from "@/app/(app)/w/[workspaceId]/p/handlers";
 import { createWorkspaceHandler } from "@/app/(app)/workspace-handlers";
 import { createActionWrapper, type ActionContext } from "@/server/action";
 import { getDataContext } from "@/server/data/context";
@@ -258,28 +258,36 @@ describe("server-action handlers with forged input (RV-C-05)", () => {
       expect(revalidatePath).toHaveBeenCalledWith(`/w/${w1}/p/${w1Page}`);
     });
 
-    it("deletePage: Viewer → Forbidden; non-member → NotFound; W2 pageId with W1 context → denied", async () => {
+    it("trashPage: Viewer → Forbidden; non-member → NotFound; W2 pageId with W1 context → denied", async () => {
       const { w1, w2, w1Page, w2Page } = ids();
-      const remove = (who: FixtureUserKey, pageId: string, workspaceId: string) =>
-        deletePageHandler(session(who), null, form({ pageId, workspaceId }));
+      const trash = (who: FixtureUserKey, pageId: string, workspaceId: string) =>
+        trashPageHandler(session(who), { pageId, workspaceId });
 
-      await expectDenied(() => remove("carol", w1Page, w1), ForbiddenError);
-      await expectDenied(() => remove("outsider", w1Page, w1), NotFoundError);
-      await expectDenied(() => remove("bob", w2Page, w1), NotFoundError);
-      await expectDenied(() => remove("alice", w2Page, w1), ForbiddenError);
-      await expectDenied(() => remove("dave", w2Page, w1), NotFoundError);
-      await expectDenied(() => remove("carol", w1Page, w2), ForbiddenError);
+      await expectDenied(() => trash("carol", w1Page, w1), ForbiddenError);
+      await expectDenied(() => trash("outsider", w1Page, w1), NotFoundError);
+      await expectDenied(() => trash("bob", w2Page, w1), NotFoundError);
+      await expectDenied(() => trash("alice", w2Page, w1), ForbiddenError);
+      await expectDenied(() => trash("dave", w2Page, w1), NotFoundError);
+      await expectDenied(() => trash("carol", w1Page, w2), ForbiddenError);
     });
 
-    it("deletePage control: an Editor deletes, then is redirected to the server-resolved workspace", async () => {
+    it("trashPage control (DP13): an Editor trashes; the row and its file are KEPT; restore brings it back", async () => {
       const { w1, w1Page } = ids();
-      const error = await deletePageHandler(session("bob"), null, form({ pageId: w1Page, workspaceId: w1 })).catch(
-        (e: unknown) => e,
-      );
-      expect(redirectTarget(error)).toBe(`/w/${w1}`);
-      expect(await t.db.select().from(page).where(eq(page.id, w1Page))).toEqual([]);
-      // DP4: the page's attachment blob is deleted too (SIMULATED del()).
-      expect(del).toHaveBeenCalledWith([t.fx.attachments.w1.blobPathname], { token: SIMULATED_BLOB_TOKEN });
+      await expect(trashPageHandler(session("bob"), { pageId: w1Page, workspaceId: w1 })).resolves.toEqual({
+        id: w1Page,
+        workspaceId: w1,
+      });
+      const [row] = await t.db.select().from(page).where(eq(page.id, w1Page));
+      expect(row.deletedAt).toBeInstanceOf(Date);
+      expect(row.deletedBy).toBe(t.fx.users.bob.id);
+      expect(del).not.toHaveBeenCalled();
+      expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
+
+      vi.mocked(revalidatePath).mockClear();
+      await expectDenied(() => restorePageHandler(session("carol"), { pageId: w1Page }), ForbiddenError);
+      await expect(restorePageHandler(session("alice"), { pageId: w1Page })).resolves.toEqual({ id: w1Page, workspaceId: w1 });
+      const [restored] = await t.db.select().from(page).where(eq(page.id, w1Page));
+      expect(restored.deletedAt).toBeNull();
     });
   });
 
@@ -294,7 +302,7 @@ describe("server-action handlers with forged input (RV-C-05)", () => {
       ["removeMember", "carol", (s) => removeMemberHandler(s, null, form({ membershipId: t.fx.memberships["bob:w1"] })), "FORBIDDEN"],
       ["createPage", "outsider", (s) => createPageHandler(s, null, form({ workspaceId: ids().w1, title: "x" })), "NOT_FOUND"],
       ["savePage", "carol", (s) => savePageHandler(s, { pageId: ids().w1Page, workspaceId: ids().w1, title: "x" }), "FORBIDDEN"],
-      ["deletePage", "bob", (s) => deletePageHandler(s, null, form({ pageId: ids().w2Page, workspaceId: ids().w1 })), "NOT_FOUND"],
+      ["trashPage", "bob", (s) => trashPageHandler(s, { pageId: ids().w2Page, workspaceId: ids().w1 }), "NOT_FOUND"],
     );
 
     it.each(cases)("%s as %s → %s", async (_name, who, run, code) => {

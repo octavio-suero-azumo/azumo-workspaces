@@ -1,0 +1,16 @@
+{
+  "runId": "20261001T193400-lint-6b00fa",
+  "check": "lint",
+  "kind": "static",
+  "command": "npm run lint",
+  "startedAt": "2026-10-01T19:34:00.844Z",
+  "durationMs": 2203,
+  "exitCode": 1,
+  "signal": null,
+  "status": "failed",
+  "testsDiscovered": 0,
+  "testsPassed": 0,
+  "testsFailed": 0,
+  "testsSkipped": 0,
+  "outputExcerpt": "\n> azumo-workspaces@0.1.0 lint\n> eslint\n\n\n/Users/octavio/Documents/azumo-workspaces/tests/unit/qa-env-isolation.test.ts\n  60:3  error  Do not assign to the variable `module`. See: https://nextjs.org/docs/messages/no-assign-module-variable  @next/next/no-assign-module-variable\n\n✖ 1 problem (1 error, 0 warnings)\n\n"
+}

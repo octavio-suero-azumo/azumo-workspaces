@@ -1,4 +1,6 @@
-import Link from "next/link";
+import type { Metadata } from "next";
+import { TopBar } from "@/components/top-bar";
+import { DEFAULT_WORKSPACE_ICON, displayIcon } from "@/lib/icons";
 import { can } from "@/server/authz/permissions";
 import { listMembers } from "@/server/data/members";
 import { getWorkspace } from "@/server/data/workspaces";
@@ -6,6 +8,8 @@ import { orNotFound, requirePageContext } from "@/server/render-guards";
 import { AddMemberForm, ChangeRoleForm, RemoveMemberForm } from "./member-forms";
 
 const ROLE_LABEL: Readonly<Record<string, string>> = { owner: "Owner", editor: "Editor", viewer: "Viewer" };
+
+export const metadata: Metadata = { title: "Members · Azumo Workspaces" };
 
 /**
  * Members of a workspace (T-09). Every member can see the list. Controls are
@@ -23,51 +27,82 @@ export default async function MembersPage({ params }: PageProps<"/w/[workspaceId
   const canRemove = can(workspace.role, "member.remove");
 
   return (
-    <section className="flex flex-col gap-6 p-8">
-      <header>
-        <Link href={`/w/${workspace.id}`} className="text-sm text-neutral-500 underline underline-offset-2">
-          {workspace.name}
-        </Link>
-        <h1 className="text-2xl font-semibold">Members</h1>
-      </header>
+    <>
+      <TopBar
+        crumbs={[
+          { label: workspace.name, href: `/w/${workspace.id}`, icon: displayIcon(workspace.icon, DEFAULT_WORKSPACE_ICON) },
+          { label: "Members" },
+        ]}
+      />
+      <main id="main-content" className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pb-24 pt-8">
+        <header className="flex flex-col gap-2">
+          <h1 className="text-3xl font-bold">Members</h1>
+          <p className="text-sm text-muted">
+            Members can open every page, file and calendar event of this workspace with their role. Only Owners add, change or
+            remove people.
+          </p>
+        </header>
 
-      {canAdd ? <AddMemberForm workspaceId={workspace.id} /> : null}
+        {canAdd ? (
+          <section aria-labelledby="add-member-heading" className="ui-card flex flex-col gap-2">
+            <h2 id="add-member-heading" className="ui-section-title">
+              Add someone who has already signed in
+            </h2>
+            <AddMemberForm workspaceId={workspace.id} />
+          </section>
+        ) : null}
 
-      <table className="w-full max-w-3xl text-left text-sm" data-testid="member-table">
-        <thead className="border-b border-neutral-200 text-xs uppercase tracking-wide text-neutral-500">
-          <tr>
-            <th className="py-2 pr-4 font-medium">Name</th>
-            <th className="py-2 pr-4 font-medium">Email</th>
-            <th className="py-2 pr-4 font-medium">Role</th>
-            {canRemove ? <th className="py-2 font-medium">Actions</th> : null}
-          </tr>
-        </thead>
-        <tbody>
-          {members.map((member) => {
-            const label = member.userId === session.userId ? `${member.name} (you)` : member.name;
-            return (
-              <tr key={member.membershipId} className="border-b border-neutral-100" data-testid="member-row">
-                <td className="py-2 pr-4">{label}</td>
-                <td className="py-2 pr-4" data-testid="member-email">
-                  {member.email}
-                </td>
-                <td className="py-2 pr-4" data-testid="member-role">
-                  {canChangeRole ? (
-                    <ChangeRoleForm membershipId={member.membershipId} role={member.role} label={member.email} />
-                  ) : (
-                    (ROLE_LABEL[member.role] ?? member.role)
-                  )}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[32rem] text-left text-sm" data-testid="member-table">
+            <caption className="sr-only">Members of {workspace.name}</caption>
+            <thead className="border-b border-border text-xs text-muted">
+              <tr>
+                <th scope="col" className="py-2 pr-4 font-medium">
+                  Name
+                </th>
+                <th scope="col" className="py-2 pr-4 font-medium">
+                  Email
+                </th>
+                <th scope="col" className="py-2 pr-4 font-medium">
+                  Role
+                </th>
                 {canRemove ? (
-                  <td className="py-2">
-                    <RemoveMemberForm membershipId={member.membershipId} label={member.email} />
-                  </td>
+                  <th scope="col" className="py-2 font-medium">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 ) : null}
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </section>
+            </thead>
+            <tbody>
+              {members.map((member) => {
+                const label = member.userId === session.userId ? `${member.name} (you)` : member.name;
+                return (
+                  <tr key={member.membershipId} className="border-b border-border" data-testid="member-row">
+                    <td className="max-w-48 truncate py-2 pr-4" title={label}>
+                      {label}
+                    </td>
+                    <td className="max-w-64 truncate py-2 pr-4" data-testid="member-email" title={member.email}>
+                      {member.email}
+                    </td>
+                    <td className="py-2 pr-4" data-testid="member-role">
+                      {canChangeRole ? (
+                        <ChangeRoleForm membershipId={member.membershipId} role={member.role} label={member.email} />
+                      ) : (
+                        (ROLE_LABEL[member.role] ?? member.role)
+                      )}
+                    </td>
+                    {canRemove ? (
+                      <td className="py-2">
+                        <RemoveMemberForm membershipId={member.membershipId} label={member.email} />
+                      </td>
+                    ) : null}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </>
   );
 }

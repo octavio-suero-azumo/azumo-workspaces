@@ -19,8 +19,19 @@ import {
 } from "@/server/data/attachments";
 import type { DataContext } from "@/server/data/context";
 import { addMember, changeMemberRole, listMembers, removeMember } from "@/server/data/members";
-import { createPage, deletePage, getPage, listPages, updatePage } from "@/server/data/pages";
-import { getWorkspace, listMyWorkspaces } from "@/server/data/workspaces";
+import { createEvent, listEventsInRange, listLinkablePages } from "@/server/data/events";
+import { duplicatePage, movePage } from "@/server/data/page-transfer";
+import {
+  createPage,
+  getPage,
+  listPages,
+  restorePage,
+  trashPage,
+  updatePage,
+  updatePageIcon,
+  updatePagePresentation,
+} from "@/server/data/pages";
+import { getWorkspace, listMyWorkspaces, updateWorkspace } from "@/server/data/workspaces";
 import { DEFAULT_UPLOAD_ALLOWED_TYPES, DEFAULT_UPLOAD_MAX_BYTES } from "@/server/env";
 import { ForbiddenError, NotFoundError } from "@/server/errors";
 import { snapshotAppTables, type Fixtures } from "../support/fixtures";
@@ -117,7 +128,13 @@ describe("workspace isolation", () => {
       // Pages (real data functions, increment D).
       await expectDenied(createPage(ctx, { workspaceId: workspaces.w2.id, title: "Injected" }), NotFoundError, t.fx);
       await expectDenied(updatePage(ctx, { pageId: pages.w2[0].id, title: "Hijacked" }), NotFoundError, t.fx);
-      await expectDenied(deletePage(ctx, { pageId: pages.w2[0].id }), NotFoundError, t.fx);
+      await expectDenied(trashPage(ctx, { pageId: pages.w2[0].id }), NotFoundError, t.fx);
+      await expectDenied(duplicatePage(ctx, { pageId: pages.w2[0].id }), NotFoundError, t.fx);
+      await expectDenied(
+        movePage(ctx, { pageId: pages.w2[0].id, destinationWorkspaceId: workspaces.w2.id }),
+        NotFoundError,
+        t.fx,
+      );
 
       // Attachments (real data functions, increment E).
       const w2Prefix = uploadPathPrefix(workspaces.w2.id, pages.w2[0].id);
@@ -146,7 +163,35 @@ describe("workspace isolation", () => {
       ["getPage", (ctx, fx) => getPage(ctx, { pageId: fx.pages.w1[0].id })],
       ["createPage", (ctx, fx) => createPage(ctx, { workspaceId: fx.workspaces.w1.id, title: "x" })],
       ["updatePage", (ctx, fx) => updatePage(ctx, { pageId: fx.pages.w1[0].id, title: "x" })],
-      ["deletePage", (ctx, fx) => deletePage(ctx, { pageId: fx.pages.w1[0].id })],
+      ["trashPage", (ctx, fx) => trashPage(ctx, { pageId: fx.pages.w1[0].id })],
+      ["restorePage", (ctx, fx) => restorePage(ctx, { pageId: fx.pages.w1[0].id })],
+      ["updatePageIcon", (ctx, fx) => updatePageIcon(ctx, { pageId: fx.pages.w1[0].id, icon: "🚀" })],
+      [
+        "updatePagePresentation",
+        (ctx, fx) => updatePagePresentation(ctx, { pageId: fx.pages.w1[0].id, fullWidth: true }),
+      ],
+      ["duplicatePage", (ctx, fx) => duplicatePage(ctx, { pageId: fx.pages.w1[0].id })],
+      [
+        "movePage",
+        (ctx, fx) => movePage(ctx, { pageId: fx.pages.w1[0].id, destinationWorkspaceId: fx.workspaces.w1.id }),
+      ],
+      ["updateWorkspace", (ctx, fx) => updateWorkspace(ctx, { workspaceId: fx.workspaces.w1.id, name: "x" })],
+      [
+        "listEventsInRange",
+        (ctx, fx) => listEventsInRange(ctx, { workspaceId: fx.workspaces.w1.id, from: "2026-10-01", to: "2026-10-31" }),
+      ],
+      [
+        "createEvent",
+        (ctx, fx) =>
+          createEvent(ctx, {
+            workspaceId: fx.workspaces.w1.id,
+            title: "x",
+            allDay: true,
+            startDate: "2026-10-01",
+            endDate: "2026-10-01",
+          }),
+      ],
+      ["listLinkablePages", (ctx, fx) => listLinkablePages(ctx, fx.workspaces.w1.id)],
       ["listMembers", (ctx, fx) => listMembers(ctx, fx.workspaces.w1.id)],
       [
         "addMember",
@@ -238,7 +283,7 @@ describe("workspace isolation", () => {
     it("(a) a W2 pageId with workspaceId=W1 is checked against W2 (alice: Viewer → Forbidden)", async () => {
       const { workspaces, pages } = t.fx;
       const substituted = { pageId: pages.w2[0].id, workspaceId: workspaces.w1.id };
-      for (const action of ["page.edit", "page.delete", "attachment.add"] as const) {
+      for (const action of ["page.edit", "page.trash", "page.move", "attachment.add"] as const) {
         await expectDenied(authorize(t.as("alice"), substituted, action), ForbiddenError, t.fx);
       }
     });
@@ -248,10 +293,10 @@ describe("workspace isolation", () => {
       const substituted = { pageId: pages.w2[0].id, workspaceId: workspaces.w1.id };
       const before = await snapshotAppTables(t.db);
       await expectDenied(updatePage(t.as("alice"), { ...substituted, title: "x" }), ForbiddenError, t.fx);
-      await expectDenied(deletePage(t.as("alice"), substituted), ForbiddenError, t.fx);
+      await expectDenied(trashPage(t.as("alice"), substituted), ForbiddenError, t.fx);
       // dave is Owner of W2 but the request claims W1's route: NotFound.
       await expectDenied(updatePage(t.as("dave"), { ...substituted, title: "x" }), NotFoundError, t.fx);
-      await expectDenied(deletePage(t.as("dave"), substituted), NotFoundError, t.fx);
+      await expectDenied(trashPage(t.as("dave"), substituted), NotFoundError, t.fx);
       expect(await snapshotAppTables(t.db)).toEqual(before);
     });
 

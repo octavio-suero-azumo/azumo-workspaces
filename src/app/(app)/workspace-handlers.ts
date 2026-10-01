@@ -2,7 +2,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { ActionContext } from "@/server/action";
 import { getDataContext } from "@/server/data/context";
-import { createWorkspace } from "@/server/data/workspaces";
+import { createWorkspace, updateWorkspace } from "@/server/data/workspaces";
 
 /**
  * Server-action handlers for workspaces (review RV-C-05).
@@ -23,4 +23,24 @@ export async function createWorkspaceHandler(
   const created = await createWorkspace(ctx, { name: formData.get("name") });
   revalidatePath("/", "layout");
   redirect(`/w/${created.id}`);
+}
+
+function field(input: unknown, key: string): unknown {
+  return typeof input === "object" && input !== null && Object.hasOwn(input, key)
+    ? (input as Record<string, unknown>)[key]
+    : undefined;
+}
+
+/**
+ * Rename a workspace and/or change its icon (Owner only, E2/E6):
+ * `{ workspaceId, name?, icon? }` (`icon: null` resets to the default).
+ */
+export async function updateWorkspaceHandler(session: ActionContext, input: unknown) {
+  const ctx = await getDataContext(session);
+  const changes: Record<string, unknown> = { workspaceId: field(input, "workspaceId") };
+  if (field(input, "name") !== undefined) changes.name = field(input, "name");
+  if (field(input, "icon") !== undefined) changes.icon = field(input, "icon");
+  const updated = await updateWorkspace(ctx, changes);
+  revalidatePath("/", "layout");
+  return { id: updated.id, name: updated.name, icon: updated.icon };
 }

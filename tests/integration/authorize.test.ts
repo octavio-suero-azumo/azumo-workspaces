@@ -20,15 +20,31 @@ const ALLOWED: Record<"alice" | "bob" | "carol", readonly Action[]> = {
     "page.view",
     "page.create",
     "page.edit",
-    "page.delete",
+    "page.duplicate",
+    "page.trash",
+    "page.restore",
+    "trash.view",
     "attachment.add",
     "attachment.delete",
+    "event.view",
+    "event.create",
+    "event.edit",
+    "event.delete",
   ],
   // carol = Viewer of W1
-  carol: ["workspace.view", "page.view"],
+  carol: ["workspace.view", "page.view", "event.view"],
 };
 
-const PAGE_LEVEL = new Set<Action>(["page.view", "page.edit", "page.delete", "attachment.add", "attachment.delete"]);
+const PAGE_LEVEL = new Set<Action>([
+  "page.view",
+  "page.edit",
+  "page.duplicate",
+  "page.move",
+  "page.trash",
+  "page.restore",
+  "attachment.add",
+  "attachment.delete",
+]);
 
 describe("authorize() (T-05)", () => {
   // Read-only suite except where noted; reset each test anyway (cheap).

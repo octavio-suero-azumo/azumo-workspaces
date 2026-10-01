@@ -245,13 +245,19 @@ describe("DB constraints (T-03b)", () => {
       expect(all).toBe(2);
     });
 
-    it("the composite FK is declared as (page_id, workspace_id) → page(id, workspace_id) ON DELETE CASCADE", async () => {
+    it("the composite FK is declared as (page_id, workspace_id) → page(id, workspace_id) ON DELETE CASCADE, DEFERRABLE (E9 Move)", async () => {
       const result = await t.db.execute(
-        sql`select pg_get_constraintdef(oid) as def from pg_constraint where conname = 'attachment_page_workspace_fk'`,
+        sql`select pg_get_constraintdef(oid) as def, condeferrable, condeferred from pg_constraint where conname = 'attachment_page_workspace_fk'`,
       );
-      const rows = (result as unknown as { rows: Array<{ def: string }> }).rows;
+      const rows = (result as unknown as { rows: Array<{ def: string; condeferrable: boolean; condeferred: boolean }> }).rows;
+      // Migration 0004: DEFERRABLE INITIALLY IMMEDIATE — still checked per
+      // statement unless a transaction explicitly defers it (movePage).
       expect(rows).toEqual([
-        { def: "FOREIGN KEY (page_id, workspace_id) REFERENCES page(id, workspace_id) ON DELETE CASCADE" },
+        {
+          def: "FOREIGN KEY (page_id, workspace_id) REFERENCES page(id, workspace_id) ON DELETE CASCADE DEFERRABLE",
+          condeferrable: true,
+          condeferred: false,
+        },
       ]);
     });
   });
