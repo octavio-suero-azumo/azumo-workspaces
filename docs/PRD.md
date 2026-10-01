@@ -234,3 +234,101 @@ These apply the observations of `reviewer` (RV-xx), `qa` (test-plan §9) and `de
 | QA rewordings applied to AC-03, 06, 08, 12, 18, 23, 26, 30, 33, 35. AC-29 uses the reviewer's wording | QA §9, RV (QA-rewordings section) |
 | AC-09 now trims names and rejects whitespace-only ones. AC-16 conditional on P6. AC-20 defines content without PR2 | RV (additional ambiguous ACs) |
 | Added P12 (scope vs time), and P4 now also blocks T-15 | RV-04, RV-15, developer RK-8 |
+
+## 12. Scope expansion E1–E10 (requested by the user on 2026-10-01)
+
+- **Not from the meeting.** This scope was **not** part of the original meeting or brief. The user authorized it explicitly on 2026-10-01 ("ESTA ES UNA AMPLIACIÓN AUTORIZADA DEL ALCANCE"). It updates §8 (out of scope) **only** for the features listed below.
+- **Planner:** the `architect` agent produced the gap analysis, data model, permission matrix and ACs. The coordinator recorded the decisions in §12.4.
+
+### 12.1 Features
+
+| ID | Feature | Summary |
+|---|---|---|
+| E1 | Shell and theme | Compact ~250 px sidebar, breadcrumbs, centered document, borderless title, discreet menus. Light / Dark / System theme with central tokens. |
+| E2 | Icons | Configurable icon per workspace (Owner) and per page (Owner, Editor) from a curated emoji allowlist (`src/lib/icons.ts`), with default and reset. Validated server-side. |
+| E3 | Home | My workspaces, Recently edited pages (live pages only), upcoming events, create actions, empty states. |
+| E4 | Calendar | Basic per-workspace calendar: month view, prev/next/Today, event CRUD, mobile agenda. No external sync, recurrence, invites or notifications. |
+| E5 | Page "…" menu | Change icon, Copy link, Copy page contents, Share, Duplicate, Move to, Move to Trash. Font Default/Serif/Mono, Small text and Full width, persisted per page. |
+| E6 | Settings | Theme; workspace name and icon (Owner); link to member management; read-only account; Sign out. |
+| E7 | Share | Reuses workspace membership. Explicit confirmation that adding a member grants access to the WHOLE workspace. No emails, no public links. |
+| E8 | Duplicate | Same workspace, new ids. Copies title, content, icon and presentation. Attachments are copied to independent blobs. Members and events are not copied. |
+| E9 | Move to | Owner in the source workspace and page.create in the destination. Attachments are copied to the destination prefix, the DB switches in one transaction, and the originals are deleted only after commit. Retry-safe. |
+| E10 | Trash and Restore | Soft delete (`deleted_at`, `deleted_by`). Trash view per authorized workspace; Restore re-checks current permissions. **Replaces hard delete in the UI** (supersedes DP4/AC-28). No empty-trash, permanent delete or auto-purge. |
+
+**Still excluded:**
+- Any AI feature.
+- External calendar sync.
+- Notifications and email.
+- Real-time collaboration.
+- Version history and present mode.
+- Import/export.
+- Automations.
+- Public links and external users.
+- Page trees.
+- Lock page.
+
+### 12.2 Data model (migrations 0003–0005, additive only)
+
+- **`workspace.icon`** and **`page.icon`:** text, NULL = default icon; at most 16 code points.
+- **`page.font`:** `default` | `serif` | `mono`.
+- **`page.small_text`**, **`page.full_width`:** boolean, default false.
+- **`page.deleted_at`**, **`page.deleted_by`:** paired: either both are set or both are NULL.
+- **`attachment_page_workspace_fk`:** becomes `DEFERRABLE INITIALLY IMMEDIATE`. Move defers it inside its transaction, because the blob-pathname prefix CHECK is per row and cannot be deferred.
+- **`calendar_event`:**
+  - `start_date`/`end_date` are dates, end inclusive. They are used for all-day events and are never converted between time zones.
+  - `start_at`/`end_at` are `timestamptz`, with `time_zone` (IANA). They are used for timed events.
+  - A composite FK `(page_id, workspace_id) → page(id, workspace_id) ON DELETE SET NULL (page_id)`: an event can only link to a page of its own workspace.
+
+### 12.3 Permissions (added to `can()`)
+
+| Action | Owner | Editor | Viewer | Non-member |
+|---|---|---|---|---|
+| `workspace.edit` (name, icon) | Y | 403 | 403 | 404 |
+| `page.move` (source workspace) | Y | 403 | 403 | 404 |
+| `page.edit` (incl. icon and presentation), `page.duplicate`, `page.trash`, `page.restore`, `trash.view`, `event.create/edit/delete` | Y | Y | 403 | 404 |
+| `page.view` (incl. `/p/{id}`, copy link and contents, Share list), `event.view` | Y | Y | Y | 404 |
+
+**Trash rule:** a trashed page resolves only for `page.restore`. Every other action, including attachment downloads, upload registration, event links and `/p/{id}`, returns 404.
+
+### 12.4 Decisions recorded by the coordinator
+
+| ID | Decision |
+|---|---|
+| DP11 | The theme is a per-device cookie read by the root layout (`<html data-theme>`): no flash and no inline script. |
+| DP12 | Icons come from a curated emoji allowlist only. |
+| DP13 | Trash replaces the hard page delete in the UI. The hard-delete server action is removed, so no endpoint can permanently delete a page. |
+| DP14 | Events linked to a trashed page hide the link; it reappears after Restore. |
+| DP15 | The Trash view is for Owner/Editor. |
+| DP16 | The stable link is `/p/{pageId}`, which redirects authorized users to the page's current location. The old `/w/{workspace}/p/{page}` URL keeps today's rule: 404 when the workspace does not match. |
+| DP17 | Duplicate keeps the exact title. |
+| DP18 | Home shows at most 10 recently edited pages and 10 upcoming events. |
+| DP19 | Move to the page's current workspace is an idempotent no-op (`moved: false`, nothing changes) instead of a 400. Reason: E9 must be retry-safe. If a Move commits but the response is lost, the client's retry targets the workspace the page is already in, and a 400 would report a failure for a Move that succeeded. The UI never offers the current workspace as a destination. |
+| Light tokens | Menu `#FFFFFF`, border `#E9E9E7` (not specified by the user). |
+
+### 12.5 Acceptance criteria AC-39–AC-59
+
+The full text is the planner's addendum, summarized here. The race ACs prove the ordering of operations, not real parallelism, because PGlite has a single connection.
+
+| AC | Criterion |
+|---|---|
+| AC-39 | A DB at migration 0002 holding data migrates to 0005 with its data unchanged. |
+| AC-40 | The DB rejects invalid icons, fonts, trash pairs, event shapes, end before start, and cross-workspace event→page links. Deleting a page nulls only the event's `page_id`. |
+| AC-41 | Every new matrix cell is covered by a `can()` unit test and by a direct server call. Denials change 0 rows. |
+| AC-42 | A trashed page returns 404 for everything except `page.restore`. It is absent from the sidebar, lists and Home. |
+| AC-43 | The theme is server-rendered from the cookie. System follows the OS; an invalid value falls back to system. The tokens are as specified. |
+| AC-44 | Icons can be set and reset. Unlisted values, HTML, SVG and URLs return 400 and change nothing. |
+| AC-45 | Home shows only my live data, with create controls by permission and empty states. |
+| AC-46 | Calendar month view, prev/next/Today, workspace selector limited to mine, event CRUD by role, validation, and a mobile agenda. |
+| AC-47 | An all-day event stays on the same date for viewers in UTC−11, UTC and UTC+14. A timed event keeps one instant. |
+| AC-48 | Event→page links stay within the workspace. A trashed page's title is never exposed. After a Move, the event stays in the source workspace with no link. |
+| AC-49 | Copy link gives `{origin}/p/{id}`, which grants nothing. Members are redirected to the current location; everyone else gets an identical 404. |
+| AC-50 | Copy contents produces plain text (Viewers too). Font, small text and full width persist for everyone; invalid values return 400. |
+| AC-51 | Share explains the workspace-wide scope and requires confirmation before adding. It keeps azumo.co, P6 and the last-Owner rules. No email or public link. |
+| AC-52 | Duplicate creates independent page and blobs, and copies no events or members. On failure, nothing is created. |
+| AC-53 | Move transfers the page and attachments (identical bytes) to the destination prefix and deletes the originals after commit. Source-only members get 404. The UI blocks Move with unsaved changes or an active upload. |
+| AC-54 | Move to the same workspace is a no-op (`moved: false`, DP19); a trashed page returns 404; attachments without Blob config return 503. In every case nothing changes. |
+| AC-55 | An injected failure leaves the DB unchanged and the originals intact. A retry succeeds without duplicates. |
+| AC-56 | Races: upload vs Move, save vs Move/Trash, upload registration vs Trash, revoked membership — all handled without cross-workspace rows. |
+| AC-57 | Trash keeps content, rows and blobs. The Trash view lists title, workspace, date and actor. Restore re-checks the current role. |
+| AC-58 | The theme persists. The Owner can edit the workspace name and icon. Settings links to members and shows the account read-only. |
+| AC-59 | After removal, an ex-member gets 404 for that workspace's pages, links, files, calendar, Trash and Share, and Home drops them. |

@@ -162,3 +162,63 @@
   - Real Blob: the user chose to keep it blocked.
   - Neon / Vercel deploy: no project yet.
 - Domain: P1 = `azumo.co` (decided 2026-09-29). The meeting notes' `azumo.com` stays recorded as a discrepancy; it is not enabled.
+
+## 2026-10-01 — Validation & deploy — inventory, gaps, Neon migration
+- Agents (real invocation: yes):
+  - **planner** = `architect` agent: gap matrix — no real SSO/Neon/Blob evidence yet; risks listed.
+  - **QA** = `qa` agent: isolation gate + full re-run (in progress).
+  - **Coordinator** = main session with the `azumo-orchestrator` skill.
+- Decision recorded (user, 2026-10-01): `ALLOWED_GOOGLE_HD=azumo.co` is final; `azumo.com` was a mistake in the meeting notes. The deploy of the existing Vercel project `azumo-workspaces` is authorized.
+- Git: `main` == `origin/main` == `97b8714`, clean.
+- Vercel fixes (2026-09-30/10-01):
+  - Preset changed from Other to Next.js; build/output/install auto-detected. This fixed `STATIC_BUILD_NO_OUT_DIR`.
+  - `dpl_9LhxcfDVJRkt27XD9yvfskbyidta` READY; `https://azumo-workspaces.vercel.app/sign-in` returns 200.
+- `.env.local` (names only):
+  - Real Neon (pooled), Google client, Blob RW token, `BETTER_AUTH_SECRET`; `BETTER_AUTH_URL=http://localhost:3000`; `ALLOWED_GOOGLE_HD=azumo.co`.
+  - `DATABASE_URL_UNPOOLED` is absent.
+  - The Blob token belongs to the connected store `store_spo6…`.
+- Vercel Production env:
+  - The Neon integration provides `DATABASE_URL`/`DATABASE_URL_UNPOOLED` (Preview + Production share the same store).
+  - `BLOB_STORE_ID` exists, but `BLOB_READ_WRITE_TOKEN` is missing.
+  - The coordinator added `ALLOWED_GOOGLE_HD` and `BETTER_AUTH_URL` (`https://azumo-workspaces.vercel.app`).
+  - Still missing, to be added by the user (Sensitive): `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `BLOB_READ_WRITE_TOKEN`.
+- Neon:
+  - Connection and authentication OK with postgres-js (`channel_binding` accepted). Branch `br-hidden-mountain-b8ainb2d`, host `ep-steep-cell-b8y6po9w…`, db `neondb`. It was empty.
+  - Dry-run OK. **The user confirmed this is the production branch and authorized the migration.**
+  - Applied: exit 0. Verified: 8 app tables + `drizzle.__drizzle_migrations` (3 rows), 0 data rows.
+  - The temporary `.env.migrate.local` (gitignored) was deleted afterwards.
+- Accounts available for real tests: **one `@azumo.co` account only**. Multi-user roles, other-domain rejection and Gmail rejection can't be verified with real accounts.
+
+## 2026-10-01 — Scope expansion E1–E10 — plan, implementation, production migration
+- Authorization (user, 2026-10-01): E1–E10 are an explicit scope extension, not from the meeting. AI features, external calendar sync, notifications, realtime, version history, present mode, import/export, automations, public links, page trees and lock page stay excluded. Commit, push and deploy to the existing Vercel project are authorized; production migrations need a concrete confirmation each time.
+- Agents (real invocation: yes):
+  - **planner** = `architect` agent: gap analysis, data model, permission matrix, AC-39–AC-59 (summarized in PRD §12).
+  - **QA** = `qa` agent: catalog TC-45–TC-108; isolation preflight; "before" visual baseline (`docs/evidence/ui/before/`, 16 PNGs, placeholder fixtures only); E2E update and regressions (see the next entry).
+  - **Coordinator** = main session with the `azumo-orchestrator` skill: implementation (server layer and UI), migrations 0003–0005, decisions DP11–DP19.
+- The screenshot the user mentioned never arrived. The design follows the user's text and Notion's public help pages; no logos, names or documents were copied.
+- Decision DP19 (coordinator, recorded in PRD §12.4): Move to the page's current workspace is an idempotent no-op instead of a 400, for retry safety. AC-54 was updated.
+- Checks (bench MCP, before the E2E update):
+
+  | Check | Run | Result |
+  |---|---|---|
+  | lint | `20261001T214932-lint-8018b2` | passed |
+  | typecheck | `20261001T214935-typecheck-14f671` | passed |
+  | unit | `20261001T214938-unit-09c962` | 442/442 |
+  | integration | `20261001T214735-integration-2049a6` | 664/664 |
+  | build | `20261001T214946-build-f3dc1b` | passed |
+
+  An earlier unit run (`20261001T214734-unit-a68b06`) failed 1 test: a client component imported a type from `@/server/data/events`. The `EventView` type moved to `src/lib/calendar.ts`, and the re-run passed.
+- **Production migration** (user's concrete confirmation, 2026-10-01: "Sí, aplica ahora"):
+  - **Target:** Neon branch `br-hidden-mountain-b8ainb2d`, host `ep-steep-cell-b8y6po9w…` (direct endpoint), db `neondb`, PostgreSQL 18.6.
+  - **Before (read-only):** 3 migrations (0000–0002). Counts: 1 user, 1 session, 1 account, 1 workspace, 1 membership, 1 page, 1 attachment.
+  - **Applied** 0003–0005 with `scripts/migrate.mjs --target=prod` (one transaction): exit 0.
+  - **After (read-only transaction):**
+    - 6 migrations registered.
+    - New columns on `page` and `workspace`, and the new table `calendar_event`.
+    - CHECKs validated.
+    - `attachment_page_workspace_fk` is deferrable (`deferred=false`).
+    - `calendar_event_page_workspace_fk` is `ON DELETE SET NULL (page_id)`.
+    - All 4 new indexes are present.
+    - Counts are unchanged (all 1). 0 events, 0 trashed pages.
+  - The temporary `.env.migrate.local` (gitignored, mode 600) was deleted.
+- **Vercel Production env:** names checked only, nothing decrypted. `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_GOOGLE_HD`, `BLOB_READ_WRITE_TOKEN`, `BLOB_STORE_ID`, `DATABASE_URL` and `DATABASE_URL_UNPOOLED` are present.
